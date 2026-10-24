@@ -9,7 +9,7 @@ ultralytics>=8.3            # YOLOv8n-seg (and yolo26n-seg) training + export
 segmentation-models-pytorch>=0.3   # U-Net + ResNet34 reference architecture
 
 # Classical CV / preprocessing
-opencv-python-headless>=4.10         # speckle denoise, slant-range correction, resampling
+opencv-python-headless>=5.0.0        # speckle denoise, slant-range correction, resampling
 albumentations>=1.4         # augmentation pipeline
 scikit-image>=0.23          # additional filtering (e.g. speckle/Lee-filter style ops)
 

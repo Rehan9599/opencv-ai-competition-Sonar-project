@@ -19,8 +19,6 @@ RUN pip install --no-cache-dir -r edge/requirements.txt
 COPY edge/ edge/
 COPY ml/scripts/preprocess_sonar.py ml/scripts/preprocess_sonar.py
 COPY ml/inference/ ml/inference/
-COPY backend/geotagging/ backend/geotagging/
-COPY backend/reporting/ backend/reporting/
 COPY ml/models/exported/ ml/models/exported/
 
 ENV DRISHTI_ONNX=/app/ml/models/exported/best_detector.onnx \
