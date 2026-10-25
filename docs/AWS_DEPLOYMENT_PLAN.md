@@ -25,14 +25,15 @@ autoscaling, and monitoring from the ECR image.
 ## Current deployment snapshot — 2026-10-25
 
 - Region: `us-east-1`
-- ECR image: `563691829406.dkr.ecr.us-east-1.amazonaws.com/drishti-9599:contest-frontend-1`
-- Image digest: `sha256:fb7722bf38d41737f6ce86e423cf60d238e9f1bd433648cd704392e8f4306f6b`
+- ECR image: `563691829406.dkr.ecr.us-east-1.amazonaws.com/drishti-9599:contest-ui-v2`
+- Image digest: `sha256:a5642b9ae1406f11d2921c875859c6112700bdb410acf3a68754b43a54519383`
+- UI refresh: ECS service revision `0403662103757014234`, deployment successful; `/` serves the responsive edge interface and `/health` returns 200.
 - S3 results bucket: `drishti95-bucket`; `drishti/results/` expires after 30 days
 - ECS Express Mode service: `drishti-edge`, 1 vCPU, 2 GB, one-task maximum
 - Public URL: `https://dr-b3baa1d3c12848cdb860091b09a68618.ecs.us-east-1.on.aws`
 - CloudWatch logs: `/aws/ecs/default/drishti-edge-ab52`, 14-day retention
 - `/health`, `/detect`, and S3 result writes were verified. ECS deployment completed.
-- The edge upload UI is served at `/`; the full React/Django dashboard is not part of this edge service.
+- The redesigned edge upload UI is served at `/`; the full React/Django dashboard is not part of this edge service.
 - No monthly AWS Budget alert is configured yet.
 
 ## Phase 1: local readiness
@@ -77,7 +78,7 @@ Do not commit access keys. Use an IAM role, OIDC, or the AWS CLI credential chai
 export AWS_REGION=us-east-1
 export AWS_ACCOUNT_ID=563691829406
 export ECR_REPOSITORY=drishti-9599
-export IMAGE_TAG=contest-frontend-1
+export IMAGE_TAG=contest-ui-v2
 
 aws ecr create-repository \
   --repository-name "$ECR_REPOSITORY" \

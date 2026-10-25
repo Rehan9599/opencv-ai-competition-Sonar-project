@@ -1,370 +1,179 @@
-# DRISHTI
+# DRISHTI — Side-Scan Sonar Hazard Detection
 
-**AI-powered underwater marine-debris & anomaly detection from side-scan sonar imagery.**
-OpenCV AI Competition 2026, powered by AWS · OpenCV 5 · Physical AI
+**OpenCV AI Competition 2026, powered by AWS**
 
-The full local stack ingests side-scan sonar transects, detects man-made seabed hazards, applies
-confidence filtering, geotags detections, and serves a review dashboard with JSON/CSV/GeoJSON
-exports. For a lightweight demo, the repository also provides a torch-free FastAPI edge API and
-upload UI that run locally in Docker or on AWS ECS Express Mode.
+DRISHTI is a sonar-imaging project that uses computer vision to identify candidate seabed hazards in side-scan sonar (SSS) imagery. The repository contains a full local survey-review workflow and a smaller CPU edge-inference app. The edge app is the version deployed for the contest demo.
 
-> Three retained technical PDFs document preprocessing, model selection, and system limitations;
-> see [`docs/Documents/README.md`](docs/Documents/README.md) and [`docs/PDF_AUDIT.md`](docs/PDF_AUDIT.md).
-> Contest architecture and submission notes: [`docs/OPENCV_AI_COMPETITION_2026.md`](docs/OPENCV_AI_COMPETITION_2026.md).
+| Try it | Link |
+|---|---|
+| Live edge demo | [Open DRISHTI on AWS](https://dr-b3baa1d3c12848cdb860091b09a68618.ecs.us-east-1.on.aws) |
+| Edge API docs | [Interactive API reference](https://dr-b3baa1d3c12848cdb860091b09a68618.ecs.us-east-1.on.aws/docs) |
+| Source code | [GitHub repository](https://github.com/Rehan9599/opencv-ai-competition-Sonar-project) |
+| Public dataset | [DRISHTI SSS on Hugging Face](https://huggingface.co/datasets/rehan9599/drishti-sss) |
+| Model artifacts | [DRISHTI detector on Hugging Face](https://huggingface.co/rehan9599/drishti-detector) |
 
-## OpenCV AI Competition 2026
+## Project overview
 
-This contest branch is prepared for the [OpenCV AI Competition 2026, powered by AWS](https://opencv.org/competition/).
-OpenCV performs substantive sonar image analysis through decoding, Lee speckle filtering,
-CLAHE enhancement, resizing, and annotated output preparation. ONNX Runtime remains the
-neural inference engine so the CPU path stays reproducible and lightweight.
+The detector identifies four product classes: submarine pipelines, shipwrecks, ghost nets, and mine cylinders. The system is designed to help an analyst prioritize sonar review; predictions are candidate detections and require human verification.
 
-The AWS contest deployment uses the focused edge API and upload UI, not the full local
-Django/dashboard stack. The React dashboard in `apps/dashboard` expects Django job, WebSocket,
-review, and export routes. It remains available for the full local workflow but is not included in
-the lighter ECS image. The deployed edge UI calls the ONNX detector through FastAPI:
+### Two ways to use DRISHTI
 
-- OpenCV 5 preprocessing and image analysis
-- ONNX Runtime CPU inference
-- Containerized FastAPI service in `edge/`
-- Single-image browser UI served by the same container at `/`
-- Optional S3 result storage through the task's IAM role
-- CloudWatch-compatible container logs
-- AWS ECS Express Mode on Fargate
+**Edge demo (deployed and runnable locally).** A FastAPI service loads the FP32 ONNX model, applies OpenCV preprocessing, and returns boxes, labels, and model scores. A lightweight HTML interface in `edge/static/` lets a user upload one PNG or JPEG, view detections over the image, and inspect runtime details. The same-origin interface and API are packaged together in a Docker image. The edge flow does not geolocate a single uploaded tile.
 
-See [`docs/OPENCV_AI_COMPETITION_2026.md`](docs/OPENCV_AI_COMPETITION_2026.md) for the
-submission requirements, architecture, evaluation claims, and responsible-use limitations.
-The current project status is [`docs/PROJECT_STATUS.md`](docs/PROJECT_STATUS.md), and the
-reproducibility record is [`docs/evaluation_manifest.yaml`](docs/evaluation_manifest.yaml).
+**Full survey dashboard (local project workflow).** The React 18 + Vite + React-Leaflet dashboard in `apps/dashboard/` works with the Django REST/Channels API and the PostgreSQL, Redis, and Celery services. It supports multi-file jobs, WebSocket progress, geotagged map review when navigation data is available, analyst confirm/reject actions, and JSON/CSV/GeoJSON exports. This larger stack is separate from the public AWS edge demo and is not included in its container. Follow [docs/LOCAL_SETUP.txt](docs/LOCAL_SETUP.txt) for setup and known issues.
 
-**Try the ONNX detector locally in 2 minutes:**
-[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/Rehan9599/opencv-ai-competition-Sonar-project/blob/main/notebooks/01_quickstart_inference.ipynb)
-— the ONNX model and sample tiles are committed, so one `git clone` runs the detector on CPU.
+## Contest edge architecture
 
----
-
-## 1. Repository layout
-
-```
-apps/
-  api/            Django REST + Channels (WebSocket) + Celery worker  →  the backend service
-    detections/   models · views · serializers · tasks (the ML job)  · tiling · consumers · routing
-    drishti_api/  settings · asgi · celery
-  dashboard/      React 18 + Vite + React-Leaflet  →  the operator dashboard (Module 4)
-    src/components/  UploadPanel · MapView · ReviewQueue · DetectionImage
-    src/pages/       UploadResultsPage · LiveFeed · GlobalMap · Export
-    src/state/       store.js  (session-scoped job accumulation)
-ml/
-  scripts/        dataset assembly · preprocess · train · calibrate · evaluate · export_onnx · run_aurora_survey
-  inference/      detector · confidence_filter · shadow_verification · preprocess · pipeline (chains M0→M3)
-  geotagging/     XTF header parser · nav CSV · coordinate projection · run_geotag
-  reporting/      schema · json_export · csv_export
-  models/         checkpoints/ (best_detector.pt) · exported/ (ONNX + calibrator.pkl)
-edge/             ONNX edge API + upload UI: edge_infer.py · onnx_runtime_server.py · static/ · Dockerfile.edge
-demo/             frontend_test/ (curated upload bundle) · preprocessing_demo.py · tiles/
-docs/             Documents/ (3 retained PDFs) · API_ENDPOINTS.md · LOCAL_SETUP.txt · TILING_DEDUP_FIX.md
-                  OpenCV competition/AWS plans · evaluation manifest · PDF audit · hf/ cards
-compose.yaml      full local stack: postgres + redis + web + worker
-scripts/run_local.sh   native fallback (Postgres+Redis in Docker, Django+Celery on the host)
-notebooks/        Colab quickstart
+```mermaid
+flowchart LR
+    B[Browser: upload and review] -->|PNG or JPEG| F[FastAPI edge service]
+    F --> P[OpenCV decode and sonar preprocessing]
+    P --> O[ONNX Runtime CPU inference]
+    O --> F
+    F -->|boxes, classes, scores| B
+    F -. optional result JSON .-> S3[Amazon S3]
+    F --> CW[Amazon CloudWatch logs]
+    ECR[Amazon ECR image] --> ECS[Amazon ECS Express Mode on Fargate]
+    ECS --> F
 ```
 
-Training data (~34 GB) and weight backups are **not in git** — see §5.
+OpenCV is used for image decoding, grayscale conversion, Lee speckle filtering, CLAHE contrast enhancement, resizing, and preparing annotated output. ONNX Runtime performs neural-network inference on the CPU. The edge image includes the model artifact, so it does not download weights at runtime.
 
----
+The AWS deployment uses Amazon ECR, Amazon ECS Express Mode on Fargate, Amazon S3 for optional result JSON, and Amazon CloudWatch for logs. Uploaded image bytes are handled by the inference request; when S3 result storage is enabled, the service saves the JSON result rather than the uploaded image.
 
-## 2. Run it locally
+## Run the edge demo locally
 
-The stack is 4 services: **Postgres · Redis · Django (ASGI) · Celery worker**, plus the Vite dev server.
+Requirements: Docker Desktop (or Docker Engine) and enough memory for the model container.
 
-### 2.1 Docker (recommended)
-
-```bash
-cp .env.example .env
-docker compose up -d --build                       # postgres + redis + web + worker
-docker compose exec web python manage.py migrate
-docker compose exec web python manage.py createsuperuser
-
-# frontend (separate terminal)
-npm install -g pnpm
-pnpm install
-pnpm --filter @drishti/dashboard dev               # → http://localhost:5173
-```
-
-API on `http://localhost:8000`, dashboard on `http://localhost:5173` (Vite proxies `/api` and
-`/ws` to `:8000`). Postgres is published on host port **5433** (container-internal 5432) so it
-won't clash with a native Postgres — `compose.yaml` overrides `POSTGRES_PORT` back to 5432
-inside the network.
-
-> **`docker compose build worker` after any change to `apps/api/detections/tasks.py`** — the
-> worker image is `FROM drishti-api:latest`, so a `web`-only rebuild silently ships stale task code.
-
-### 2.2 Native fallback (no Docker for the app)
-
-`scripts/run_local.sh` runs Postgres + Redis in Docker but Django (`daphne`) and Celery
-(`-P solo`, required on Windows) natively from `.venv`:
-
-```bash
-python -m venv .venv && source .venv/Scripts/activate     # or bin/activate
-pip install -r apps/api/requirements.txt
-bash scripts/run_local.sh
-pnpm --filter @drishti/dashboard dev
-```
-
-Full detail, troubleshooting, and the known-issues list: **`docs/LOCAL_SETUP.txt`**.
-
-### 2.3 Edge UI and API (standalone Docker image)
-
-The edge image includes the ONNX model, FastAPI service, and the small upload UI served at `/`.
-No separate frontend build or model download is needed:
+From the repository root:
 
 ```bash
 docker build -f edge/Dockerfile.edge -t drishti-edge:local .
 docker run --rm -p 8100:8100 drishti-edge:local
 ```
 
-Open `http://localhost:8100` to upload a PNG/JPEG, view annotated detections, and see the active
-model/runtime details. The API is at `/detect`, health details at `/health`, and interactive API
-documentation at `/docs`.
+Open [http://localhost:8100](http://localhost:8100), choose a PNG or JPEG, and run detection. The local container has S3 result storage disabled unless `DRISHTI_S3_BUCKET` and AWS credentials are configured.
 
-This is the same lightweight edge mode deployed to AWS. It uses `best_detector.onnx` (the edge
-export of the trained detector), OpenCV 5 preprocessing, and ONNX Runtime CPU inference. It does
-not start Django, Redis, PostgreSQL, or the React dashboard.
-
-### 2.4 Full local dashboard smoke test
-
-```bash
-curl -F "file=@demo/frontend_test/02_shipwreck.jpg" \
-     -F "nav=@demo/frontend_test/navigation.csv" \
-     http://localhost:8000/api/upload/                    # → {"job_id": "..."}
-```
-
-`demo/frontend_test/` has five curated tiles (pipeline, shipwreck, mine, ghost-net, empty
-seabed) + a real AURORA nav CSV + one full transect TIF. See its `README.md` for the exact
-drag-and-drop demo script.
-
----
-
-## 3. The dashboard (Module 4 — working)
-
-The `/upload` page is the operational surface. All of this is wired to the live API:
-
-- **Multi-file upload** — drop several tiles at once; each becomes its own job, results merge.
-- **Session accumulation** — every upload this browser session stays on one map + review
-  queue (backed by `sessionStorage`; a `settled` flag gates polling so a job's results are
-  fetched exactly once, and never revert to the raw pre-merge stream).
-- **Live streaming** — detections appear tile-by-tile over WebSocket while the job runs, then
-  reconcile to the final de-duplicated set on completion.
-- **Map** — geolocated contacts with a per-class colour, an uncertainty circle (not a false
-  point), and a hover popup. "Show detected image" opens the source tile crop with the box
-  drawn (`GET /api/detections/<id>/image/`).
-- **Review queue** — pinned header, scrolls independently, per-row Confirm / Reject. Every
-  decision writes an `AuditLogEntry` and becomes a fine-tuning label.
-- **Export** — JSON / CSV / GeoJSON per job, straight into existing GIS tools.
-- **Single-viewport layout** — map + review queue + export fit one screen, no page scroll.
-
----
-
-## 4. The model & pipeline
-
-### 4.1 Model
-
-- **YOLOv8s**, fine-tuned from COCO (Ultralytics 8.4.x), **anchor-free**, 11.8 M params.
-- **Box detection**, not segmentation — every real SSS dataset we could obtain is box-labelled.
-- **4 classes shipped** (`submarine_pipeline`, `shipwreck`, `mine_cylinder`, `ghost_net`);
-  `crab_pot` was trained then filtered from the product (separability, not data volume — see
-  the model doc), and is excluded from the public dataset for licensing.
-- **SSS-specific training:** grayscale, **vertical-flip OFF** (preserves highlight→shadow
-  polarity), 640 px, 120 epochs, AdamW, best checkpoint @ epoch 91.
-- **Preprocessing (M0):** Lee MMSE speckle filter (7×7) + CLAHE (clip 3.0, 8×8), identical at
-  train and serve time — `ml/scripts/preprocess_sonar.py :: despeckle_clahe`.
-  `demo/preprocessing_demo.py` renders a raw → Lee → Lee+CLAHE before/after panel.
-
-### 4.2 Reproduced ONNX results — published test split
-
-The public dataset revision audited for this submission has **700 test tiles**. The prior
-850-tile and mAP claims do not have a matching evaluation export, so they are not treated as
-verified results. The reproducible ONNX check below uses confidence `0.25`, one-to-one
-same-class matching at IoU `0.50`, and the 700 published test tiles:
-
-This is the raw ONNX detector at one shared confidence threshold. The server's per-class
-confidence gates and calibration are not applied in this diagnostic run.
-
-| Shipped class | TP | FP | FN | Precision | Recall |
-|---|---:|---:|---:|---:|---:|
-| `submarine_pipeline` | 168 | 6 | 6 | 0.9655 | 0.9655 |
-| `shipwreck` | 180 | 100 | 345 | 0.6429 | 0.3429 |
-| `ghost_net` | 120 | 0 | 0 | 1.0000 | 1.0000 |
-| `mine_cylinder` | 38 | 26 | 44 | 0.5938 | 0.4634 |
-
-These are fixed-threshold precision/recall figures, **not mAP**. `ghost_net` is synthetic-only,
-so its result is capability evidence, not field performance. See
-[`docs/evaluation_manifest.yaml`](docs/evaluation_manifest.yaml) for the dataset revision,
-model hash, method, and remaining evaluation gates.
-
-Context: vanilla YOLOv8 tops out at ~0.716–0.755 mAP on clean AI4Shipwrecks in the 2026
-literature (DFSE-YOLO); human annotators agree only 50–60 % on wreck boundaries (SW-Net).
-
-### 4.3 Pipeline (per job)
-
-```
-raw SSS transect + nav log
-        │
-        ▼
-  tile 640×640, 50 % overlap (stride 320)        ── for every tile ──┐
-        │                                                            │
-        ▼                                                            │
-  M0  preprocess   Lee 7×7 + CLAHE                                    │
-        ▼                                                            │
-  M1  detect       YOLOv8s → box + class + raw score                 │
-        ▼                                                            │
-  M2  confidence   per-class gate → per-class Platt calibration →    │
-                   acoustic-shadow geometry check  (L = h·G/(H−h))   │
-        ▼                                                            │
-  M3  geotag       pixel → slant range R → ground range G=√(R²−H²) → │
-                   geodesic step ⟂ heading → (lat, lon) + size (m)   │
-        └────────────────────────────────────────────────────────────┘
-        ▼
-  merge duplicates across overlapping tiles   (centre-distance ≤ 50 px, per class)
-        ▼
-  route by calibrated score   ≥ 80 auto-confirm · 30–80 review queue · < 30 drop
-        ▼
-  JSON / CSV / GeoJSON  +  live dashboard
-```
-
-- Single tile: `python -m ml.inference.pipeline --image tile.png --xtf <f>.xtf --nav navigation.csv --out report`
-- Full transect: `python ml/scripts/run_aurora_survey.py --preprocess`
-- Geotag validated on the AURORA survey to **< 1 m** against recorded navigation; the *target*
-  projection is a different quantity — two nav paths placed the same contact ~122 m apart, so
-  every detection carries a **search radius and a `ping_id`, never a bare pin**.
-- No nav source? The pipeline still runs — detections get `null` coordinates and stay off the
-  map, class/score/box intact.
-
-### 4.4 Edge / ONNX
-
-| Model | Size | CPU latency | Role |
-|---|---|---|---|
-| **FP32 ONNX** | 44.8 MB | ~90 ms/tile (98–106 ms on a laptop CPU) | **shipped** — `onnxruntime` + `numpy` + `opencv`, no PyTorch |
-| FP16 ONNX | 22.4 MB | — | Jetson Orin GPU target (FP16/TensorRT) |
-| INT8 ONNX | 11.5 MB | 164 ms (slower) + accuracy collapse | excluded |
-
-```bash
-python ml/scripts/export_onnx.py --model ml/models/checkpoints/best_detector.pt --benchmark
-python edge/edge_infer.py --image tile.png --no-preprocess
-uvicorn edge.onnx_runtime_server:app --port 8100
-```
-
-The edge health response reports the actual OpenCV, NumPy, and ONNX Runtime versions, model
-SHA-256, inference provider, model output classes, and four-class product taxonomy. Use it as
-the runtime evidence for the contest report:
-
-```bash
-curl http://localhost:8100/health
-```
-
-The Celery worker imports `ml.inference.pipeline.run_pipeline()` **in-process** — the model is a
-library, not a microservice. Redis carries messages only; detections go worker → Postgres via
-`bulk_create`.
-
----
-
-## 5. Data & weights
-
-**Committed (≈ 65 MB), so `git clone` runs the detector with no fetch step:**
-
-| File | Size | Used by |
-|---|---|---|
-| `ml/models/checkpoints/best_detector.pt` | 21.5 MB | `pipeline.py` default (needs torch) |
-| `ml/models/exported/best_detector.onnx` | 44.8 MB | torch-free `onnxruntime` path (backend + edge) |
-| `ml/models/exported/calibrator.pkl` | 2 KB | M2 per-class calibration |
-
-**Not in git:**
-
-| Asset | Source |
-|---|---|
-| `.pt` backups, FP16/INT8 ONNX, per-epoch checkpoints (~3.4 GB) | [`rehan9599/drishti-detector`](https://huggingface.co/rehan9599/drishti-detector) — `hf download rehan9599/drishti-detector` |
-| Training splits — 5,205 tiles, preprocessed, **CC-BY-SA-4.0** | [`rehan9599/drishti-sss`](https://huggingface.co/datasets/rehan9599/drishti-sss) — `hf download rehan9599/drishti-sss --repo-type dataset --local-dir ml/data/splits` |
-| Raw source datasets (~32 GB) | reconstructible — public sources listed in the literature doc + `ml/scripts/tile_*.py` + `build_dataset.py` |
-
-**Licences:** AI4Shipwrecks · SubPipe · Roboflow SSS — CC-BY-4.0 · Kaggle sonar-mine — CC-BY-SA-4.0.
-KLSG / SeabedObjects **excluded** (academic-use only, no redistribution). Our assembled release: CC-BY-SA-4.0.
-
----
-
-## 6. API
-
-Full contract: **`docs/API_ENDPOINTS.md`**.
+Useful edge endpoints:
 
 | Method | Path | Purpose |
 |---|---|---|
-| `POST` | `/api/upload/` | multipart `file` (+ optional `xtf`, `nav`) → `{job_id}`, `202` |
-| `GET` | `/api/jobs/` · `/api/jobs/<id>/` | job list / status + progress |
-| `GET` | `/api/detections/<job_id>/` | the 13-field detection records (`job_id` included) |
-| `PATCH` | `/api/detections/<id>/review/` | `{review_status: analyst_confirmed \| analyst_rejected}` → audit entry |
-| `GET` | `/api/detections/<id>/image/` | source tile crop with the bounding box drawn |
-| `GET` | `/api/export/<job_id>/?format=json\|csv\|geojson` | report download |
-| `WS` | `/ws/jobs/<job_id>/` | `detection.partial` (per tile) · `detection.complete` · `detection.failed` |
+| `GET` | `/` | Browser upload and detection interface |
+| `GET` | `/health` | Service, model, OpenCV, ONNX Runtime, and provider metadata |
+| `POST` | `/detect` | Run inference for one uploaded image |
+| `GET` | `/docs` | Interactive FastAPI documentation |
 
----
+The demo accepts PNG/JPEG images up to 10 MB. It returns image-space boxes and model scores; there are no coordinates for a single tile.
 
-## 7. Docs
+## Run the full React dashboard locally
 
-| File | What |
-|---|---|
-| `docs/Documents/` | three retained technical PDFs; purpose and status are listed in `docs/Documents/README.md` |
-| `docs/OPENCV_AI_COMPETITION_2026.md` | contest architecture, evidence, and submission requirements |
-| `docs/PROJECT_STATUS.md` | current verified state and remaining submission gates |
-| `docs/AWS_DEPLOYMENT_PLAN.md` | AWS deployment plan and evidence checklist |
-| `docs/evaluation_manifest.yaml` | pinned dataset, model, runtime, and verified evaluation details |
-| `docs/PDF_AUDIT.md` | PDF retention and regeneration decisions |
-| `docs/API_ENDPOINTS.md` | REST + WebSocket contract |
-| `docs/LOCAL_SETUP.txt` | end-to-end local bring-up + troubleshooting + known issues |
-| `docs/TILING_DEDUP_FIX.md` | cross-tile duplicate-detection bug: root cause + fix + verification (backend-team report) |
-| `docs/hf/` | Hugging Face model + dataset cards |
+The dashboard requires the separate Django API, PostgreSQL, Redis, and Celery worker. From the repository root, the quick-start path is:
 
----
+```bash
+cp .env.example .env
+docker compose up -d --build
+docker compose exec web python manage.py migrate
+docker compose exec web python manage.py createsuperuser
+pnpm install
+pnpm --filter @drishti/dashboard dev
+```
 
-## 8. What changed in this revision
+The Vite dashboard is served at `http://localhost:5173`; the Django API is served at `http://localhost:8000`. On Windows PowerShell, use `Copy-Item .env.example .env` for the environment-file copy. See [docs/LOCAL_SETUP.txt](docs/LOCAL_SETUP.txt) for prerequisites, complete commands, troubleshooting, and known issues. The full Compose stack was not smoke-tested as part of the current edge deployment verification.
 
-Backend / ML:
-- **Cross-tile duplicate merge** — `_merge_overlapping_detections()` runs once per job after all
-  tiles are scored, collapsing near-identical detections of the same class (bbox-centre ≤ 50 px)
-  and keeping the highest-confidence one. Logged to the completion audit entry. (`docs/TILING_DEDUP_FIX.md`)
-- **True 50 % tile overlap** — `write_tiles()` / `tile_offsets()` stride `512 → 320`.
-- **`DetectionSerializer`** — explicit 13-field list, `job_id` now included (was dropped by `exclude`).
-- **`GET /api/detections/<id>/image/`** — regenerates the source tile crop with the box drawn
-  (tiles are transient; the upload + full-image bbox are kept).
-- **Ungeotagged records** — `run_pipeline` emits detections with `null` lat/lon when no
-  nav/XTF is supplied instead of erroring; `schema.py` / `json_export.py` handle null geometry.
-- **Docker** — `.dockerignore` (image 30 GB → 1.2 GB, build 40 min → 2 min), pip cache mount,
-  HTTPS apt; `compose.yaml` Postgres host-port 5433 + in-network port override.
+## Model and data
 
-Frontend:
-- **Session-accumulating results** with a `settled` polling gate (`store.js`, `UploadResultsPage.jsx`).
-- **Multi-file upload** (`UploadPanel.jsx`).
-- **"Show detected image" modal** with a graceful "not available yet" fallback (`DetectionImage/`).
-- **Map hover popup**; **review queue** pinned-header scroll fix.
-- **Single-viewport layout** — map + queue + export on one screen.
+- **Detector:** YOLOv8s fine-tuned for sonar box detection and exported as FP32 ONNX for edge inference.
+- **Preprocessing:** grayscale conversion, Lee MMSE despeckle filtering with a 7×7 kernel, and CLAHE (clip limit 3.0, 8×8 grid); the configured input size is 640×640.
+- **Public dataset:** 5,205 tiles at pinned revision [`627849579f6dcee0897a112c6796736eb7900032`](https://huggingface.co/datasets/rehan9599/drishti-sss/tree/627849579f6dcee0897a112c6796736eb7900032): 3,875 train, 630 validation, and 700 test tiles.
+- **Product taxonomy:** `submarine_pipeline`, `shipwreck`, `ghost_net`, and `mine_cylinder`. The detector has an additional `crab_pot` output ID that is filtered from the product; that class has no labels in the published dataset.
+- **Dataset license:** CC-BY-SA-4.0. See the [dataset card](docs/hf/dataset_card.md) and its upstream source attributions before reusing the data.
+- **Model details:** See [docs/hf/model_card.md](docs/hf/model_card.md). The model file and exact SHA-256 used for evaluation are listed in [docs/evaluation_manifest.yaml](docs/evaluation_manifest.yaml).
 
-Infra / demo / docs:
-- `scripts/run_local.sh` (native stack), `docs/LOCAL_SETUP.txt`, `docs/TILING_DEDUP_FIX.md`.
-- `demo/frontend_test/` (curated upload bundle + AURORA nav), `demo/preprocessing_demo.py`
-  (Lee + CLAHE before/after).
-- `docs/Documents/*.pdf` — the three retained technical references; see `docs/Documents/README.md`.
+## Evaluation
 
----
+The following diagnostic evaluates raw ONNX outputs on all 700 tiles in the pinned public test split. Matching is greedy, one-to-one, per image and class, with confidence threshold `0.25` and IoU threshold `0.50`. The detector's per-class gates and calibration are not applied. These are fixed-threshold precision/recall results, **not mAP**.
 
-## 9. Status
+| Class | TP | FP | FN | Precision | Recall |
+|---|---:|---:|---:|---:|---:|
+| Submarine pipeline | 168 | 6 | 6 | 96.6% | 96.6% |
+| Shipwreck | 180 | 100 | 345 | 64.3% | 34.3% |
+| Ghost net | 120 | 0 | 0 | 100.0% | 100.0% |
+| Mine cylinder | 38 | 26 | 44 | 59.4% | 46.3% |
 
-| Part | State |
-|---|---|
-| OpenCV 5 edge image | **verified** — OpenCV 5.0.0, NumPy 2.5.4, ONNX Runtime 1.31.0 |
-| Edge Docker build | **passed locally** — `drishti-edge:frontend-1`; same image is deployed on ECS Express Mode |
-| Edge tests | **9 passed** earlier in this workflow; FastAPI startup-event deprecation warning remains |
-| Dataset and taxonomy | **reconciled** against the pinned 5,205-tile public dataset; four shipped classes |
-| Evaluation | fixed-threshold ONNX P/R reproduced on 700 test tiles; historic mAP/ECE claims remain unverified |
-| Local Django/dashboard stack | source is present; full Compose stack was not smoke-tested in this review |
-| AWS edge API + upload UI | **deployed and smoke-tested** on ECS Express Mode; browser detection and S3 result writes verified |
-| Final demo/evidence and monthly budget alert | **pending** |
+The ghost-net examples are synthetic-on-synthetic and do not establish performance on real ghost nets. Shipwreck site-disjointness has not been fully audited. An observed evaluation time of 134.7 ms per test tile included image decode, inference, and matching; the host hardware was not recorded, so this is not a hardware-independent latency benchmark. Earlier 850-tile, mAP, and calibration claims could not be reproduced from the pinned 700-tile test split and are not reported as verified results. Full method and limitations are recorded in [docs/evaluation_manifest.yaml](docs/evaluation_manifest.yaml).
 
-See [`docs/PROJECT_STATUS.md`](docs/PROJECT_STATUS.md) for validation details and the remaining submission gates.
+## AWS deployment
+
+The current public service is deployed in `us-east-1` on ECS Express Mode with one Fargate task (1 vCPU, 2 GB). Its current ECR image is `drishti-9599:contest-ui-v2` (`sha256:a5642b9ae1406f11d2921c875859c6112700bdb410acf3a68754b43a54519383`). ECR holds the container image, S3 stores optional result JSON under `drishti/results/`, and CloudWatch stores logs. The service is limited to one task and accepts unauthenticated uploads, so use it as a demonstration endpoint.
+
+To publish an updated edge UI or API from PowerShell at the repository root, use a new image tag and the AWS profile configured for this account:
+
+```powershell
+$Region = "us-east-1"
+$AccountId = "563691829406"
+$Repo = "drishti-9599"
+$Tag = "contest-ui-v2"
+$Registry = "$AccountId.dkr.ecr.$Region.amazonaws.com"
+
+aws ecr get-login-password --region $Region --profile drishti-contest |
+  docker login --username AWS --password-stdin $Registry
+docker build -f edge/Dockerfile.edge -t "drishti-edge:$Tag" .
+docker tag "drishti-edge:$Tag" "${Registry}/${Repo}:${Tag}"
+docker push "${Registry}/${Repo}:${Tag}"
+```
+
+After the push, update the `drishti-edge` ECS Express Mode service to use the new ECR tag or image digest and deploy the new revision. ECS keeps running the image digest from its existing deployment until the service is updated. When deployment reports healthy, refresh the [live demo](https://dr-b3baa1d3c12848cdb860091b09a68618.ecs.us-east-1.on.aws) and verify `/health`.
+
+For the full account setup and service configuration, see [deploy/aws/README.md](deploy/aws/README.md) and [docs/AWS_DEPLOYMENT_PLAN.md](docs/AWS_DEPLOYMENT_PLAN.md). A monthly AWS Budget alert is not currently configured.
+
+## Full-stack API overview
+
+These routes belong to the local Django dashboard workflow, not the deployed edge API. The full contract is in [docs/API_ENDPOINTS.md](docs/API_ENDPOINTS.md).
+
+| Method | Path | Purpose |
+|---|---|---|
+| `POST` | `/api/upload/` | Submit sonar image(s), optionally with navigation files, and create a job |
+| `GET` | `/api/jobs/` and `/api/jobs/<id>/` | List jobs or inspect job status/progress |
+| `GET` | `/api/detections/<job_id>/` | Retrieve detections for a job |
+| `PATCH` | `/api/detections/<id>/review/` | Confirm or reject a candidate and record an audit entry |
+| `GET` | `/api/detections/<id>/image/` | View a source-tile crop with its box |
+| `GET` | `/api/export/<job_id>/?format=json\|csv\|geojson` | Download a job report |
+| `WS` | `/ws/jobs/<job_id>/` | Receive per-tile and job-completion events |
+
+## Repository map
+
+```text
+apps/api/          Django REST, Channels, Celery, and job processing
+apps/dashboard/    React/Vite/React-Leaflet analyst dashboard
+edge/              FastAPI ONNX edge service, upload UI, and Dockerfile
+ml/inference/      Detection, preprocessing, confidence, and pipeline modules
+ml/geotagging/     Navigation parsing and coordinate projection
+ml/reporting/      JSON, CSV, and report schemas
+ml/models/exported/ ONNX model and calibration artifact
+notebooks/         Colab quickstart
+demo/              Curated sample tiles and demo materials
+docs/              Competition, setup, evaluation, model, and deployment documentation
+```
+
+Training datasets and large checkpoint backups are not stored in Git. Download instructions and the data/model licenses are maintained in the Hugging Face cards linked above.
+
+## Limitations and responsible use
+
+- Detections are candidates for analyst review, not confirmed findings or enforcement evidence.
+- Recall differs by class; the current shipwreck and mine-cylinder evaluation shows substantial missed detections.
+- The ghost-net evaluation is synthetic-only, and generalization across independent survey sites and sonar systems is not established.
+- Calibration and mAP metrics need to be recomputed on the pinned public test split before making claims about them.
+- Edge single-image inference does not geolocate a tile. Coordinates in the larger local workflow depend on survey navigation data and should be interpreted as search areas.
+- The public edge endpoint has no authentication, has a 10 MB upload limit, and is capped at one task.
+
+## Competition and project documentation
+
+- [Competition architecture and submission notes](docs/OPENCV_AI_COMPETITION_2026.md)
+- [Current project status](docs/PROJECT_STATUS.md)
+- [Evaluation manifest and reproducibility record](docs/evaluation_manifest.yaml)
+- [Local stack setup and troubleshooting](docs/LOCAL_SETUP.txt)
+- [AWS deployment runbook](deploy/aws/README.md)
+- [AWS deployment plan](docs/AWS_DEPLOYMENT_PLAN.md)
+- [REST and WebSocket API contract](docs/API_ENDPOINTS.md)
+- [Dataset card](docs/hf/dataset_card.md) · [Model card](docs/hf/model_card.md)
+- [Technical document inventory](docs/Documents/README.md) · [PDF audit](docs/PDF_AUDIT.md)

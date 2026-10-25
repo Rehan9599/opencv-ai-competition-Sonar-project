@@ -17,10 +17,10 @@ the pinned public test split, and final demo/evidence work remains.
 |---|---|
 | OpenCV 5 edge runtime | Verified in the built image: OpenCV 5.0.0, NumPy 2.5.4, ONNX Runtime 1.31.0. |
 | Edge Docker image | `drishti-edge:frontend-1` built successfully; it serves the upload UI and the FastAPI/ONNX endpoints. |
-| Edge upload UI | `edge/static/index.html` is served at `/` from the FastAPI container; browser upload, box overlay, detections, and model/runtime metadata are working. |
+| Edge upload UI | Redesigned responsive `edge/static/index.html` is served at `/` from the FastAPI container; browser upload, box overlay, detections, and model/runtime metadata are working. |
 | Local edge smoke test | `/health` returned 200 with the model hash and CPU provider; `/detect` returned a shipwreck detection for the demo sample. S3 was disabled locally. |
 | AWS edge service | ECS Express Mode is live in `us-east-1`; [public endpoint](https://dr-b3baa1d3c12848cdb860091b09a68618.ecs.us-east-1.on.aws). One Fargate task, 1 vCPU / 2 GB, `/health` check. |
-| AWS image and results | ECR tag `drishti-9599:contest-frontend-1`; browser `/detect` stored a JSON result in `drishti95-bucket`. Bucket blocks public access, uses SSE-S3, and expires `drishti/results/` objects after 30 days. |
+| AWS image and results | ECR tag `drishti-9599:contest-ui-v2` (`sha256:a5642b9ae1406f11d2921c875859c6112700bdb410acf3a68754b43a54519383`); ECS rollout succeeded and the redesigned page, `/health`, and S3-enabled runtime metadata were verified. Browser `/detect` previously stored a JSON result in `drishti95-bucket`. Bucket blocks public access, uses SSE-S3, and expires `drishti/results/` objects after 30 days. |
 | AWS logs and scale | CloudWatch group `/aws/ecs/default/drishti-edge-ab52`, 14-day retention; ECS maximum task count set to 1. A monthly AWS Budget alert is not configured. |
 | Automated tests | 9 tests passed earlier in this workflow. The edge test run emitted a FastAPI startup-event deprecation warning. |
 | Dataset splits | Pinned public dataset revision and counts verified: 3,875 train, 630 validation, 700 test (5,205 total). |

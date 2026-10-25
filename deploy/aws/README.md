@@ -33,18 +33,20 @@ Run this in PowerShell from the repository root after signing in:
 $Region = "us-east-1"
 $AccountId = "563691829406"
 $Repo = "drishti-9599"
-$Tag = "contest-frontend-1"
+$Tag = "contest-ui-v2"
 $Registry = "$AccountId.dkr.ecr.$Region.amazonaws.com"
 
 aws sts get-caller-identity --profile drishti-contest
 aws ecr get-login-password --region $Region --profile drishti-contest |
   docker login --username AWS --password-stdin $Registry
-docker build -f edge/Dockerfile.edge -t drishti-edge:frontend-1 .
-docker tag drishti-edge:frontend-1 "${Registry}/${Repo}:${Tag}"
+docker build -f edge/Dockerfile.edge -t drishti-edge:contest-ui-v2 .
+docker tag drishti-edge:contest-ui-v2 "${Registry}/${Repo}:${Tag}"
 docker push "${Registry}/${Repo}:${Tag}"
 ```
 
-In ECR, verify the `contest-frontend-1` image appears and copy its digest.
+In ECR, verify the `contest-ui-v2` image appears and copy its digest. When updating the existing
+Express Mode service, select the new image digest (recommended) and deploy the new service revision;
+an existing task continues running its previously selected digest until updated.
 
 ## 4. Create the result bucket and retention rule
 

@@ -96,8 +96,8 @@ aws:
   status: deployed_and_smoke_tested
   region: us-east-1
   ecr_repository: drishti-9599
-  image_tag: contest-frontend-1
-  image_digest: sha256:fb7722bf38d41737f6ce86e423cf60d238e9f1bd433648cd704392e8f4306f6b
+  image_tag: contest-ui-v2
+  image_digest: sha256:a5642b9ae1406f11d2921c875859c6112700bdb410acf3a68754b43a54519383
   frontend: edge/static/index.html served at /
   ecs_express_service: drishti-edge
   public_endpoint: https://dr-b3baa1d3c12848cdb860091b09a68618.ecs.us-east-1.on.aws
