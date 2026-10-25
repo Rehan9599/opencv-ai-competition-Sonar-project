@@ -1,7 +1,7 @@
 task: segment
 mode: train
 model: yolov8s-seg.pt
-data: D:\Sonar-Drishti\ml\configs\drishti.yaml
+data: ml/configs/drishti.yaml
 epochs: 100
 time: null
 patience: 20
@@ -12,7 +12,7 @@ save_period: 10
 cache: false
 device: '0'
 workers: 8
-project: D:\Sonar-Drishti\ml\models\checkpoints
+project: ml/models/checkpoints
 name: yolov8_seg_20260829_224332
 exist_ok: true
 pretrained: true
@@ -113,4 +113,4 @@ auto_augment: randaugment
 erasing: 0.4
 cfg: null
 tracker: tracktrack.yaml
-save_dir: D:\Sonar-Drishti\ml\models\checkpoints\yolov8_seg_20260829_224332
+save_dir: ml/models/checkpoints/yolov8_seg_20260829_224332

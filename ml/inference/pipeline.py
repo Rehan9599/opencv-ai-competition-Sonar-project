@@ -6,7 +6,7 @@ End-to-end inference wire-up:
                  ->  geotag + report record (Module 3)
                  ->  JSON / CSV / GeoJSON
 
-This is the single function backend/detections/tasks.py calls per uploaded image.
+This is the single function apps/api/detections/tasks.py calls per uploaded image.
 Runnable standalone:
 
     python -m ml.inference.pipeline --image path.tif --source-file DATA0000106.H-PU \\

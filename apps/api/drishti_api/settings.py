@@ -6,7 +6,7 @@ from decouple import Csv, config
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-# Sonar-Drishti/
+# repository root
 REPO_ROOT = BASE_DIR.parent.parent
 
 # Makes this possible:

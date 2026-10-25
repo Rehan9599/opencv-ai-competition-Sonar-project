@@ -1,7 +1,7 @@
 ========================================================================
 DRISHTI — LOCAL SETUP TO TEST + DEVELOP BACKEND & FRONTEND
 ========================================================================
-Machine assumed: Windows 11, repo at d:\Sonar-Drishti
+Machine assumed: Windows 11. Replace <repo-root> below with this checkout's absolute path.
 Shells: Git Bash for POSIX commands, PowerShell where noted.
 
 This is everything needed to bring up the full stack (Postgres + Redis +
@@ -145,15 +145,15 @@ B6. Run the backend — TWO processes, two terminals, both from apps/api
     with the venv active and repo root on PYTHONPATH.
 
     Terminal 1 — ASGI web server (REST + WebSocket):
-        cd d:/Sonar-Drishti/apps/api
-        export PYTHONPATH=d:/Sonar-Drishti
+        cd <repo-root>/apps/api
+        export PYTHONPATH=<repo-root>
         python -m daphne -b 0.0.0.0 -p 8000 drishti_api.asgi:application
 
     Terminal 2 — Celery worker (runs the ML pipeline per job):
-        cd d:/Sonar-Drishti/apps/api
-        export PYTHONPATH=d:/Sonar-Drishti
-        export DRISHTI_MODEL=d:/Sonar-Drishti/ml/models/exported/best_detector.onnx
-        export DRISHTI_CALIBRATOR=d:/Sonar-Drishti/ml/models/exported/calibrator.pkl
+        cd <repo-root>/apps/api
+        export PYTHONPATH=<repo-root>
+        export DRISHTI_MODEL=<repo-root>/ml/models/exported/best_detector.onnx
+        export DRISHTI_CALIBRATOR=<repo-root>/ml/models/exported/calibrator.pkl
         celery -A drishti_api worker -l info -P solo
         # -P solo is REQUIRED on Windows (prefork pool is broken there)
 
@@ -184,7 +184,7 @@ B7. Health check
         pnpm --version
 
 3b. Install workspace deps (from repo root — installs api + dashboard)
-        cd d:/Sonar-Drishti
+        cd <repo-root>
         pnpm install
 
 3c. Run the dashboard dev server
@@ -213,7 +213,7 @@ Backend on 8000, worker running, Redis up, frontend on 5173.
         curl http://localhost:8000/api/health/
 
 4b. Upload a sonar image to create a job
-        curl -F "file=@d:/Sonar-Drishti/demo/tiles/<pick-one>.jpg" \
+        curl -F "file=@<repo-root>/demo/tiles/<pick-one>.jpg" \
              http://localhost:8000/api/upload/
         # -> {"job_id": "...."}   (note the id)
 
@@ -242,11 +242,11 @@ consumer are ALL wired correctly.
 ========================================================================
   ML (works today, no infra needed):
         source .venv/Scripts/activate
-        cd d:/Sonar-Drishti
+        cd <repo-root>
         python -m pytest ml/tests -q            # 6 pass
 
   Backend (needs a DB; test file is currently EMPTY — see section 7):
-        cd d:/Sonar-Drishti/apps/api
+        cd <repo-root>/apps/api
         python -m pytest -q
 
   Frontend:

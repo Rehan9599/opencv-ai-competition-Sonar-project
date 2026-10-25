@@ -4,7 +4,7 @@
 both teams build against. Frontend can mock all of it today; backend fills the stubs to match.
 
 Nothing here is negotiable without telling both teams — the record shape is already produced by
-working code (`backend/reporting/schema.py`) and consumed by the report exporters.
+working code (`ml/reporting/schema.py`) and consumed by the report exporters.
 
 ---
 
@@ -24,8 +24,8 @@ report["detections"]   # ← already the exact wire shape below
 | Layer | Owns | Location |
 |---|---|---|
 | Model | preprocess → detect → calibrate → geotag | `ml/inference/pipeline.py` |
-| Backend | jobs, persistence, auth, push, exports | `backend/detections/` |
-| Frontend | upload, map, review queue | `frontend/src/` |
+| Backend | jobs, persistence, auth, push, exports | `apps/api/detections/` |
+| Frontend | upload, map, review queue | `apps/dashboard/src/` |
 
 Swapping or retraining the model changes nothing above this line.
 
@@ -75,16 +75,16 @@ Produced by `DetectionRecord.to_dict()`. Every REST response and WebSocket event
 | < 30 | — | dropped before it reaches the API |
 | — | `analyst_confirmed` / `analyst_rejected` | set by `PATCH`, never by the model |
 
-Thresholds live in `backend/reporting/schema.py` (`AUTO_CONFIRM_THRESHOLD = 80.0`,
+Thresholds live in `ml/reporting/schema.py` (`AUTO_CONFIRM_THRESHOLD = 80.0`,
 `REVIEW_FLOOR = 30.0`).
 
 ---
 
 ## 2. REST endpoints
 
-Base path `/api/`. Wire in `backend/detections/urls.py` (empty), implement in
-`backend/detections/views.py` (docstring only), serialize in
-`backend/detections/serializers.py` (empty).
+Base path `/api/`. Wire in `apps/api/detections/urls.py`, implement in
+`apps/api/detections/views.py`, and serialize in
+`apps/api/detections/serializers.py`.
 
 ### `POST /api/upload/`
 Accept a sonar image or log, create a job, enqueue the Celery task, return immediately.
@@ -147,7 +147,7 @@ Query: `?review_status=pending_review` · `?class_label=shipwreck` · `?min_conf
 }
 ```
 
-This envelope is exactly `build_report()` in `backend/reporting/json_export.py` — reuse it, don't
+This envelope is exactly `build_report()` in `ml/reporting/json_export.py` — reuse it, don't
 rebuild it.
 
 ---
@@ -200,10 +200,10 @@ Dashboard status strip and deployment smoke test.
 
 ## 3. WebSocket
 
-`ws://<host>/ws/jobs/<job_id>/` — Django Channels. Route in `backend/detections/routing.py`
-(empty), implement in `backend/detections/consumers.py` (docstring only). Group name: `job_<job_id>`.
+`ws://<host>/ws/jobs/<job_id>/` — Django Channels. Route in `apps/api/detections/routing.py`,
+implemented by `apps/api/detections/consumers.py`. Group name: `job_<job_id>`.
 
-Frontend: `frontend/src/api/websocket.js` → `frontend/src/hooks/useDetectionSocket.js`.
+Frontend: `apps/dashboard/src/websocket.js` → `apps/dashboard/src/hooks/`.
 
 **`detection.partial`** — one per finished tile, this is what makes the demo feel live:
 ```json
@@ -231,15 +231,15 @@ Accumulate `detection.partial` client-side; don't re-fetch on every tile. Fall b
 
 | File | State | To do |
 |---|---|---|
-| `backend/detections/models.py` | docstring only | `DetectionJob`, `Detection`, `AuditLogEntry` — field names identical to §1 so the serializer is `fields = "__all__"` |
-| `backend/detections/tasks.py` | docstring only | `run_inference_job` — tile → `run_pipeline` → `bulk_create` → `group_send`. Worked example in `docs/INTEGRATION.md` |
-| `backend/detections/views.py` | docstring only | the six routes above |
-| `backend/detections/urls.py` | **empty** | urlpatterns |
-| `backend/detections/serializers.py` | **empty** | DRF serializers |
-| `backend/detections/routing.py` | **empty** | `websocket_urlpatterns` |
-| `backend/detections/consumers.py` | docstring only | group join/leave + forward |
-| `backend/reporting/*` | ✅ **done** | reuse as-is |
-| `backend/geotagging/*` | ✅ **done** | reuse as-is |
+| `apps/api/detections/models.py` | implemented | `DetectionJob`, `Detection`, `AuditLogEntry` |
+| `apps/api/detections/tasks.py` | implemented | tile → `run_pipeline` → persistence → `group_send` |
+| `apps/api/detections/views.py` | implemented | REST routes |
+| `apps/api/detections/urls.py` | implemented | URL patterns |
+| `apps/api/detections/serializers.py` | implemented | DRF serializers |
+| `apps/api/detections/routing.py` | implemented | `websocket_urlpatterns` |
+| `apps/api/detections/consumers.py` | implemented | group join/leave + forwarding |
+| `ml/reporting/*` | ✅ **done** | reuse as-is |
+| `ml/geotagging/*` | ✅ **done** | reuse as-is |
 | `ml/inference/pipeline.py` | ✅ **done** | call it, don't modify it |
 
 ---
@@ -277,7 +277,7 @@ One shared type package is worth the effort: generate TS interfaces from §1 onc
 
 ## 6. Rules
 
-1. **Don't change §1 or `backend/reporting/schema.py`.** Frontend, exporters and the ML side all
+1. **Don't change §1 or `ml/reporting/schema.py`.** Frontend, exporters and the ML side all
    depend on it. Change it in one place and tell both teams.
 2. **Don't call the model from the frontend.** Everything goes through `/api/`.
 3. **Don't set `preprocess=False`** in `run_pipeline` — the shipped model needs Lee+CLAHE.
@@ -288,6 +288,6 @@ One shared type package is worth the effort: generate TS interfaces from §1 onc
 
 ## 7. See also
 
-- `docs/INTEGRATION.md` — how to call the model, worked Celery task
-- `docs/api_contract.md` — the original frozen contract
-- `docs/MODEL_DOSSIER.html` — what the model does and how well
+- `docs/OPENCV_AI_COMPETITION_2026.md` — contest requirements and limitations
+- `docs/AWS_DEPLOYMENT_PLAN.md` — deployment architecture and rollout gates
+- `docs/evaluation_manifest.yaml` — reproducibility and metric record

@@ -1,0 +1,108 @@
+schema_version: 1
+status: provisional
+project: DRISHTI
+competition: OpenCV AI Competition 2026, powered by AWS
+repository: https://github.com/Rehan9599/opencv-ai-competition-Sonar-project
+
+model:
+  filename: ml/models/exported/best_detector.onnx
+  sha256: a2801ba3bd95e4d5737f81ff1af93eef3748cd1083be5a75b3660d68a22f33ae
+  format: ONNX FP32
+  inference_runtime: ONNX Runtime CPU
+  model_output_classes:
+    0: crab_pot
+    1: submarine_pipeline
+    2: shipwreck
+    3: ghost_net
+    4: mine_cylinder
+  shipped_product_classes:
+    - submarine_pipeline
+    - shipwreck
+    - ghost_net
+    - mine_cylinder
+  filtered_classes:
+    - crab_pot
+  public_dataset_class_instance_counts:
+    train: {crab_pot: 0, submarine_pipeline: 1000, shipwreck: 1554, ghost_net: 900, mine_cylinder: 843}
+    validation: {crab_pot: 0, submarine_pipeline: 147, shipwreck: 544, ghost_net: 120, mine_cylinder: 93}
+    test: {crab_pot: 0, submarine_pipeline: 174, shipwreck: 525, ghost_net: 120, mine_cylinder: 82}
+  split_empty_label_files: {train: 500, validation: 70, test: 70}
+
+preprocessing:
+  image_decode: OpenCV
+  grayscale: OpenCV cvtColor
+  lee_filter_kernel: 7
+  clahe_clip_limit: 3.0
+  clahe_tile_grid: [8, 8]
+  input_size: [640, 640]
+  confidence_threshold: 0.10
+  iou_threshold: 0.50
+
+runtime:
+  python: "3.12"
+  opencv: 5.0.0
+  numpy: 2.5.4
+  onnxruntime: 1.31.0
+  hardware: pending_benchmark
+  provider: CPUExecutionProvider
+  container_image: drishti-edge:task4 (local build)
+
+published_dataset:
+  repository: https://huggingface.co/datasets/rehan9599/drishti-sss
+  license: CC-BY-SA-4.0
+  split_counts:
+    train: 3875
+    validation: 630
+    test: 700
+    total: 5205
+  revision: 627849579f6dcee0897a112c6796736eb7900032
+  source: docs/hf/dataset_card.md
+  verified_local_audit_date: 2026-10-25
+  note: Counts verified from the public repository tree; all label files and test images were checked out for evaluation.
+
+evaluation:
+  status: reproduced_fixed_threshold_metrics_mAP_pending
+  method:
+    model_sha256: a2801ba3bd95e4d5737f81ff1af93eef3748cd1083be5a75b3660d68a22f33ae
+    split: test
+    images: 700
+    confidence_threshold: 0.25
+    iou_match_threshold: 0.5
+    matching: greedy_one_to_one_per_image_and_class
+    postprocessing: raw_detector_outputs; no per_class_gates_or_calibration
+    runtime: edge.eval_edge_onnx.py in drishti-edge:task4 (ONNX Runtime CPU)
+    observed_evaluation_ms_per_test_tile: 134.7
+    timing_note: Includes image decode, detector inference, and matching; host hardware was not recorded.
+  fixed_threshold_results:
+    submarine_pipeline: {tp: 168, fp: 6, fn: 6, precision: 0.9655, recall: 0.9655}
+    shipwreck: {tp: 180, fp: 100, fn: 345, precision: 0.6429, recall: 0.3429}
+    ghost_net: {tp: 120, fp: 0, fn: 0, precision: 1.0, recall: 1.0}
+    mine_cylinder: {tp: 38, fp: 26, fn: 44, precision: 0.5938, recall: 0.4634}
+  superseded_unverified_claims:
+    prior_test_tiles: 850
+    map50: 0.641
+    map50_at_conf_025: 0.580
+    map50_95: 0.459
+    precision: 0.734
+    recall: 0.629
+    calibration_ece_raw: 0.052
+    calibration_ece_calibrated: 0.037
+    reason: No matching evaluation export; the pinned public test split contains 700 tiles.
+  required_before_submission:
+    - Recompute mAP and calibration on the pinned public test split, or provide the exact 850-tile evaluation export.
+    - Record hardware and measured OpenCV/inference timings.
+
+aws:
+  status: not_deployed
+  planned_services:
+    - Amazon ECR
+    - Amazon ECS Fargate or AWS App Runner
+    - Amazon S3
+    - Amazon CloudWatch
+  s3_result_storage: optional_by_environment
+
+limitations:
+  - ghost_net results are synthetic-on-synthetic capability evidence, not field performance
+  - shipwreck site-disjointness is not fully audited
+  - geolocation is a search area and requires human review
+  - detections are not enforcement evidence

@@ -27,6 +27,7 @@ from preprocess_sonar import despeckle_clahe                      # cv2 + numpy 
 from ml.inference.confidence_filter import ConfidenceFilter        # numpy only
 
 CLASS_NAMES = ["crab_pot", "submarine_pipeline", "shipwreck", "ghost_net", "mine_cylinder"]
+SHIPPED_CLASS_NAMES = [name for name in CLASS_NAMES if name != "crab_pot"]
 DEFAULT_ONNX = ROOT / "ml" / "models" / "exported" / "best_detector.onnx"
 DEFAULT_CAL = ROOT / "ml" / "models" / "exported" / "calibrator.pkl"
 

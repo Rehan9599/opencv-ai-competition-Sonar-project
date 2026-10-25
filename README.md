@@ -1,8 +1,7 @@
 # DRISHTI
 
 **AI-powered underwater marine-debris & anomaly detection from side-scan sonar imagery.**
-Smart India Hackathon 2026 · Problem Statement **SIH26057** · Theme: Disaster Management · Category: Software
-Team **StrawHats** (ID 120014).
+OpenCV AI Competition 2026, powered by AWS · OpenCV 5 · Physical AI
 
 DRISHTI ingests a raw side-scan sonar (SSS) transect, detects man-made seabed hazards
 (shipwrecks, pipelines/cables, cylinders, entangled "ghost" nets), scores each detection on a
@@ -10,12 +9,33 @@ DRISHTI ingests a raw side-scan sonar (SSS) transect, detects man-made seabed ha
 radius, and emits a JSON / CSV / GeoJSON report plus a live review dashboard — the detector runs
 **torch-free on a CPU**, edge-deployable, no cloud required.
 
-> Slide-deck documentation set (`[1]`–`[6]`): **`docs/Documents/*.pdf`** — problem & physics ·
-> data & preprocessing · literature · the model · the system · scale & limits.
-> Full HTML technical record: **`docs/DRISHTI_DOCUMENTATION.html`**.
+> Three retained technical PDFs document preprocessing, model selection, and system limitations;
+> see [`docs/Documents/README.md`](docs/Documents/README.md) and [`docs/PDF_AUDIT.md`](docs/PDF_AUDIT.md).
+> Contest architecture and submission notes: [`docs/OPENCV_AI_COMPETITION_2026.md`](docs/OPENCV_AI_COMPETITION_2026.md).
+
+## OpenCV AI Competition 2026
+
+This contest branch is prepared for the [OpenCV AI Competition 2026, powered by AWS](https://opencv.org/competition/).
+OpenCV performs substantive sonar image analysis through decoding, Lee speckle filtering,
+CLAHE enhancement, resizing, and annotated output preparation. ONNX Runtime remains the
+neural inference engine so the CPU path stays reproducible and lightweight.
+
+The contest deployment target is a focused edge API rather than the full local Django stack:
+
+- OpenCV 5 preprocessing and image analysis
+- ONNX Runtime CPU inference
+- Containerized FastAPI service in `edge/`
+- Optional S3 result storage through the task's IAM role
+- CloudWatch-compatible container logs
+- AWS ECS/Fargate or App Runner deployment
+
+See [`docs/OPENCV_AI_COMPETITION_2026.md`](docs/OPENCV_AI_COMPETITION_2026.md) for the
+submission requirements, architecture, evaluation claims, and responsible-use limitations.
+The current project status is [`docs/PROJECT_STATUS.md`](docs/PROJECT_STATUS.md), and the
+reproducibility record is [`docs/evaluation_manifest.yaml`](docs/evaluation_manifest.yaml).
 
 **Try the detector in 2 minutes, no setup:**
-[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/Rehan9599/Sonar-Drishti/blob/main/notebooks/01_quickstart_inference.ipynb)
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/Rehan9599/opencv-ai-competition-Sonar-project/blob/main/notebooks/01_quickstart_inference.ipynb)
 — the ONNX model and sample tiles are committed, so one `git clone` runs the detector on CPU.
 
 ---
@@ -39,8 +59,8 @@ ml/
   models/         checkpoints/ (best_detector.pt) · exported/ (ONNX + calibrator.pkl)
 edge/             torch-free inference: edge_infer.py · onnx_runtime_server.py · benchmark.py · Dockerfile.edge
 demo/             frontend_test/ (curated upload bundle) · preprocessing_demo.py · tiles/
-docs/             Documents/*.pdf  ([1]–[6])  · API_ENDPOINTS.md · LOCAL_SETUP.txt · TILING_DEDUP_FIX.md
-                  DRISHTI_DOCUMENTATION.html · hf/ (HF model + dataset cards)
+docs/             Documents/ (3 retained PDFs) · API_ENDPOINTS.md · LOCAL_SETUP.txt · TILING_DEDUP_FIX.md
+                  OpenCV competition/AWS plans · evaluation manifest · PDF audit · hf/ cards
 compose.yaml      full local stack: postgres + redis + web + worker
 scripts/run_local.sh   native fallback (Postgres+Redis in Docker, Django+Celery on the host)
 notebooks/        Colab quickstart
@@ -139,18 +159,27 @@ The `/upload` page is the operational surface. All of this is wired to the live 
   train and serve time — `ml/scripts/preprocess_sonar.py :: despeckle_clahe`.
   `demo/preprocessing_demo.py` renders a raw → Lee → Lee+CLAHE before/after panel.
 
-### 4.2 Results — held-out test, 4-class shipped model
+### 4.2 Reproduced ONNX results — published test split
 
-| Metric | Value |
-|---|---|
-| mAP@50 | **0.641** *(0.580 at a 0.25 conf floor; the metric was recomputed at the standard floor — same model, same test set)* |
-| mAP@50–95 | 0.459 |
-| Precision / Recall | 0.734 / 0.629 |
-| Calibration ECE | 0.052 → **0.037** (per-class Platt; a single global calibrator made it *worse*) |
-| `submarine_pipeline` AP50 | ~0.98 |
-| `ghost_net` AP50 (synthetic data) | ~0.99 — **capability evidence, not field-validated** |
-| `shipwreck` precision (operating point) | 0.672 → 0.75 with the shadow check |
-| `mine_cylinder` precision (operating point) | 0.556 → 0.75 with the shadow check |
+The public dataset revision audited for this submission has **700 test tiles**. The prior
+850-tile and mAP claims do not have a matching evaluation export, so they are not treated as
+verified results. The reproducible ONNX check below uses confidence `0.25`, one-to-one
+same-class matching at IoU `0.50`, and the 700 published test tiles:
+
+This is the raw ONNX detector at one shared confidence threshold. The server's per-class
+confidence gates and calibration are not applied in this diagnostic run.
+
+| Shipped class | TP | FP | FN | Precision | Recall |
+|---|---:|---:|---:|---:|---:|
+| `submarine_pipeline` | 168 | 6 | 6 | 0.9655 | 0.9655 |
+| `shipwreck` | 180 | 100 | 345 | 0.6429 | 0.3429 |
+| `ghost_net` | 120 | 0 | 0 | 1.0000 | 1.0000 |
+| `mine_cylinder` | 38 | 26 | 44 | 0.5938 | 0.4634 |
+
+These are fixed-threshold precision/recall figures, **not mAP**. `ghost_net` is synthetic-only,
+so its result is capability evidence, not field performance. See
+[`docs/evaluation_manifest.yaml`](docs/evaluation_manifest.yaml) for the dataset revision,
+model hash, method, and remaining evaluation gates.
 
 Context: vanilla YOLOv8 tops out at ~0.716–0.755 mAP on clean AI4Shipwrecks in the 2026
 literature (DFSE-YOLO); human annotators agree only 50–60 % on wreck boundaries (SW-Net).
@@ -204,6 +233,14 @@ python edge/edge_infer.py --image tile.png --no-preprocess
 uvicorn edge.onnx_runtime_server:app --port 8100
 ```
 
+The edge health response reports the actual OpenCV, NumPy, and ONNX Runtime versions, model
+SHA-256, inference provider, model output classes, and four-class product taxonomy. Use it as
+the runtime evidence for the contest report:
+
+```bash
+curl http://localhost:8100/health
+```
+
 The Celery worker imports `ml.inference.pipeline.run_pipeline()` **in-process** — the model is a
 library, not a microservice. Redis carries messages only; detections go worker → Postgres via
 `bulk_create`.
@@ -253,8 +290,12 @@ Full contract: **`docs/API_ENDPOINTS.md`**.
 
 | File | What |
 |---|---|
-| `docs/Documents/*.pdf` | the `[1]`–`[6]` slide-deck documentation set |
-| `docs/DRISHTI_DOCUMENTATION.html` | full HTML technical record |
+| `docs/Documents/` | three retained technical PDFs; purpose and status are listed in `docs/Documents/README.md` |
+| `docs/OPENCV_AI_COMPETITION_2026.md` | contest architecture, evidence, and submission requirements |
+| `docs/PROJECT_STATUS.md` | current verified state and remaining submission gates |
+| `docs/AWS_DEPLOYMENT_PLAN.md` | AWS deployment plan and evidence checklist |
+| `docs/evaluation_manifest.yaml` | pinned dataset, model, runtime, and verified evaluation details |
+| `docs/PDF_AUDIT.md` | PDF retention and regeneration decisions |
 | `docs/API_ENDPOINTS.md` | REST + WebSocket contract |
 | `docs/LOCAL_SETUP.txt` | end-to-end local bring-up + troubleshooting + known issues |
 | `docs/TILING_DEDUP_FIX.md` | cross-tile duplicate-detection bug: root cause + fix + verification (backend-team report) |
@@ -288,7 +329,7 @@ Infra / demo / docs:
 - `scripts/run_local.sh` (native stack), `docs/LOCAL_SETUP.txt`, `docs/TILING_DEDUP_FIX.md`.
 - `demo/frontend_test/` (curated upload bundle + AURORA nav), `demo/preprocessing_demo.py`
   (Lee + CLAHE before/after).
-- `docs/Documents/*.pdf` — the `[1]`–`[6]` documentation set.
+- `docs/Documents/*.pdf` — the three retained technical references; see `docs/Documents/README.md`.
 
 ---
 
@@ -296,8 +337,12 @@ Infra / demo / docs:
 
 | Part | State |
 |---|---|
-| M0–M3 pipeline | **functional**, verified end-to-end on real + synthetic data |
-| Module 4 dashboard | **functional** — upload → live map → review → export, wired to the API |
-| Edge / ONNX path | **functional**, torch-free |
-| Cross-survey transfer | needs regional fine-tuning (documented literature behaviour) |
-| Ghost-net accuracy | on **synthetic** data — validate on real sonar before operational claims |
+| OpenCV 5 edge image | **verified** — OpenCV 5.0.0, NumPy 2.5.4, ONNX Runtime 1.31.0 |
+| Edge Docker build | **passed locally** — `drishti-edge:task4`; no AWS deployment yet |
+| Edge tests | **9 passed** earlier in this workflow; FastAPI startup-event deprecation warning remains |
+| Dataset and taxonomy | **reconciled** against the pinned 5,205-tile public dataset; four shipped classes |
+| Evaluation | fixed-threshold ONNX P/R reproduced on 700 test tiles; historic mAP/ECE claims remain unverified |
+| Local Django/dashboard stack | source is present; full Compose stack was not smoke-tested in this review |
+| AWS deployment and demo evidence | **pending** |
+
+See [`docs/PROJECT_STATUS.md`](docs/PROJECT_STATUS.md) for validation details and the remaining submission gates.
