@@ -1,9 +1,8 @@
 """
-DRISHTI SSS Evaluation — YOLOv8-seg on held-out REAL SSS test set.
+DRISHTI SSS Evaluation — YOLOv8 box detection on held-out REAL SSS test set.
 
-Reports mAP50 / mAP50-95 (detection), mIoU (segmentation), and per-class
-metrics for the 5 SSS anomaly classes:
-  0: crab_pot, 1: submarine_pipeline, 2: shipwreck, 3: ghost_net, 4: mine_cylinder
+Reports mAP50 / mAP50-95 and per-class metrics for the four shipped SSS product classes.
+The exported model retains a fifth filtered output ID (`crab_pot`) for compatibility.
 
 Evaluates ONLY on held-out real images — never on synthetic-augmented data.
 This is the number that goes in the pitch deck.
@@ -31,6 +30,7 @@ ML_DIR = SCRIPT_DIR.parent
 CONFIGS_DIR = ML_DIR / "configs"
 CHECKPOINTS_DIR = ML_DIR / "models" / "checkpoints"
 EVAL_RESULTS_DIR = CHECKPOINTS_DIR / "eval_results"
+SHIPPED_CLASSES = {"submarine_pipeline", "shipwreck", "ghost_net", "mine_cylinder"}
 
 
 def evaluate_yolo_seg(
@@ -45,7 +45,7 @@ def evaluate_yolo_seg(
     split: str = "test",
 ) -> Dict[str, Any]:
     """
-    Run YOLOv8-seg validation on held-out test set and report metrics.
+    Run YOLOv8 box-detector validation on the held-out test set and report metrics.
 
     Args:
         model_path: Path to trained model checkpoint.
@@ -130,6 +130,8 @@ def evaluate_yolo_seg(
             class_names = results.names if hasattr(results, "names") else {}
             for i, cls_idx in enumerate(box.ap_class_index):
                 cls_name = class_names.get(int(cls_idx), f"class_{cls_idx}")
+                if cls_name not in SHIPPED_CLASSES:
+                    continue
                 per_class[cls_name] = {
                     "AP50": float(box.ap50[i]) if i < len(box.ap50) else None,
                     "precision": float(box.p[i]) if hasattr(box, "p") and i < len(box.p) else None,
@@ -164,10 +166,14 @@ def evaluate_yolo_seg(
         "iou_threshold": iou_threshold,
         "imgsz": imgsz,
         "timestamp": datetime.now().isoformat(),
+        "model_output_classes": [
+            "crab_pot", "submarine_pipeline", "shipwreck", "ghost_net", "mine_cylinder"
+        ],
+        "shipped_classes": sorted(SHIPPED_CLASSES),
     }
 
     # DRISHTI SSS class names for reporting
-    sss_classes = ["crab_pot", "submarine_pipeline", "shipwreck", "ghost_net", "mine_cylinder"]
+    sss_classes = ["submarine_pipeline", "shipwreck", "ghost_net", "mine_cylinder"]
 
     # Print results
     logger.info("=" * 60)
@@ -245,7 +251,7 @@ def evaluate_yolo_seg(
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Evaluate YOLOv8-seg on held-out real test set"
+        description="Evaluate the YOLOv8 box detector on the held-out real test set"
     )
     parser.add_argument(
         "--model",

@@ -28,8 +28,8 @@ ml/data/synthetic/
 
 # --- Model weights & training runs ---
 # Training runs, per-epoch checkpoints and backups are big and live on Hugging Face.
-# The THREE files the pipeline actually needs are committed (64 MB) so a plain
-# `git clone` runs end-to-end with no fetch step. See docs/INTEGRATION.md.
+# The three model files needed by local inference are committed (about 67 MB) so a
+# plain clone includes the edge model, calibrator, and PyTorch checkpoint.
 runs/
 weights/
 yolov8*.pt
@@ -39,9 +39,9 @@ yolov8*.pt
 ml/models/checkpoints/*
 ml/models/exported/*
 
-# 21.5 MB — pipeline.py default (needs torch)
+# 22.5 MB — pipeline.py default (needs torch)
 !ml/models/checkpoints/best_detector.pt
-# 42.7 MB — same model, torch-free onnxruntime path
+# 44.8 MB — same model, torch-free ONNX Runtime path
 !ml/models/exported/best_detector.onnx
 #  2 KB — Module 2 per-class calibration
 !ml/models/exported/calibrator.pkl

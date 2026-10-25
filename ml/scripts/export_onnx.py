@@ -41,7 +41,7 @@ def export_to_onnx(
     dynamic: bool = False,
 ) -> Optional[Path]:
     """
-    Export YOLOv8-seg model to ONNX format.
+    Export the YOLOv8 box detector to ONNX format.
 
     Returns path to exported ONNX file.
     """
@@ -340,7 +340,7 @@ def benchmark_model(
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Export YOLOv8-seg to ONNX and benchmark"
+        description="Export the YOLOv8 box detector to ONNX and benchmark"
     )
     parser.add_argument(
         "--model",

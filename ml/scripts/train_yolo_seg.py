@@ -2,8 +2,9 @@
 DRISHTI SSS — YOLOv8 Detector Training Script  (box detection, post-pivot)
 
 Fine-tunes a COCO-pretrained YOLOv8 detector on pure SSS (Side-Scan Sonar)
-data with 5 anomaly classes: crab_pot, submarine_pipeline, shipwreck,
-ghost_net, mine_cylinder.
+data with a five-ID model taxonomy. `crab_pot` is filtered from the product;
+the shipped product classes are submarine_pipeline, shipwreck, ghost_net,
+and mine_cylinder.
 
 Key SSS-specific adaptations:
   - Colour aug off (single-channel acoustic data)
@@ -82,7 +83,7 @@ def train_yolo_seg(
     extra_args: dict = None,
 ):
     """
-    Launch YOLOv8-seg training with the specified configuration.
+    Launch YOLOv8 box-detector training with the specified configuration.
 
     Args:
         data_config: Path to dataset YAML (relative to configs/ or absolute).
@@ -217,7 +218,7 @@ def train_yolo_seg(
 
     # Launch training
     logger.info("=" * 60)
-    logger.info("Starting YOLOv8-seg SSS training...")
+    logger.info("Starting YOLOv8 box-detector SSS training...")
     logger.info("=" * 60)
 
     results = yolo_model.train(**train_args)
@@ -242,7 +243,7 @@ def train_yolo_seg(
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Train YOLOv8-seg on DRISHTI sonar debris dataset"
+        description="Train the YOLOv8 box detector on the DRISHTI sonar debris dataset"
     )
     parser.add_argument(
         "--data",

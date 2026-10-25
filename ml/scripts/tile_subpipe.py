@@ -4,9 +4,10 @@ from pathlib import Path
 from tqdm import tqdm
 
 # ---- Configurations ----
-HF_SRC = Path(r"D:\Sonar-Drishti\ml\data\raw\SubPipeMini2\DATA\SSS_HF_images")
-LF_SRC = Path(r"D:\Sonar-Drishti\ml\data\raw\SubPipeMini2\DATA\SSS_LF_images")
-OUT_DIR = Path(r"D:\Sonar-Drishti\ml\data\raw\subpipe_tiled")
+ML_ROOT = Path(__file__).resolve().parents[1]
+HF_SRC = ML_ROOT / "data" / "raw" / "SubPipeMini2" / "DATA" / "SSS_HF_images"
+LF_SRC = ML_ROOT / "data" / "raw" / "SubPipeMini2" / "DATA" / "SSS_LF_images"
+OUT_DIR = ML_ROOT / "data" / "raw" / "subpipe_tiled"
 
 TILE_W, TILE_H = 640, 500  # SubPipe strips are typically ~500px high
 STRIDE = 500               # Non-overlapping

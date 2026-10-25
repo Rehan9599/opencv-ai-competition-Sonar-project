@@ -1,4 +1,4 @@
-path: D:/Sonar-Drishti/ml/data/splits
+path: ../data/splits
 train: train/images
 val: val/images
 test: test/images

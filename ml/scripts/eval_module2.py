@@ -31,6 +31,7 @@ logger = logging.getLogger(__name__)
 ML = Path(__file__).resolve().parent.parent
 SPLITS = ML / "data" / "splits"
 NAMES = {0: "crab_pot", 1: "submarine_pipeline", 2: "shipwreck", 3: "ghost_net", 4: "mine_cylinder"}
+SHIPPED_IDS = {1, 2, 3, 4}
 IOU_MATCH = 0.5
 
 
@@ -182,6 +183,10 @@ def main():
     print("=" * 66)
     print(f"  {'class':20s} {'nGT':>5} {'TP':>5} {'FP':>5}  {'meanConf TP':>11} {'meanConf FP':>11}  gap")
     for c in sorted(per_cls):
+        if c not in SHIPPED_IDS:
+            continue
+        if c not in SHIPPED_IDS:
+            continue
         d = per_cls[c]
         mt = np.mean(d["tp_conf"]) if d["tp_conf"] else 0
         mf = np.mean(d["fp_conf"]) if d["fp_conf"] else 0

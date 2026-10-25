@@ -1,7 +1,7 @@
 """
 DRISHTI ML Pipeline — SSS Dataset Downloader & Ingestion Script
 ----------------------------------------------------------------
-Downloads Side-Scan Sonar (SSS) datasets for DRISHTI (SIH 2026 PS #26057).
+Downloads Side-Scan Sonar (SSS) datasets for DRISHTI and the OpenCV AI Competition 2026 build.
 All FLS (Forward-Looking Sonar) datasets have been removed — this pipeline
 is now pure SSS.
 

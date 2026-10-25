@@ -22,7 +22,7 @@ size_categories:
 # DRISHTI — side-scan sonar training splits
 
 The assembled, preprocessed train / val / test tiles behind the
-[DRISHTI detector](https://github.com/Rehan9599/Sonar-Drishti) — an SIH 2026 (PS 26057)
+[DRISHTI detector](https://github.com/Rehan9599/opencv-ai-competition-Sonar-project) — an OpenCV AI Competition 2026
 marine-debris and anomaly detector for side-scan sonar. YOLO format, 640 px tiles.
 
 ## Licence — CC-BY-SA-4.0
@@ -122,7 +122,8 @@ Filenames carry their source.
 | `wreckR`| 354   | Roboflow side-scan-sonar (Ship + Plane) | real |
 | `mine`  | 225   | Kaggle sonar-mine (MILCO contacts) | real |
 
-Full source detail: `docs/PROJECT_RECORD.html` §03 and §15 in the GitHub repo.
+Dataset assembly and source-download details are in `ml/scripts/download_datasets.py`,
+`ml/scripts/build_dataset.py`, and `ml/scripts/tile_ai4shipwrecks.py` in the GitHub repo.
 
 ## Known caveats
 
@@ -155,8 +156,8 @@ yolo detect train data=drishti.yaml model=yolov8s.pt imgsz=640 epochs=120 batch=
   title  = {DRISHTI: AI-Powered Marine Debris Detection from Side-Scan Sonar},
   author = {Fazal, Rehan and others},
   year   = {2026},
-  note   = {Smart India Hackathon 2026, Problem Statement 26057},
-  url    = {https://github.com/Rehan9599/Sonar-Drishti}
+  note   = {OpenCV AI Competition 2026, powered by AWS},
+  url    = {https://github.com/Rehan9599/opencv-ai-competition-Sonar-project}
 }
 ```
 

@@ -1,21 +1,38 @@
 """Generate the Colab notebooks in notebooks/ (keeps the .ipynb JSON valid by construction)."""
 
 import json
+from itertools import count
 from pathlib import Path
 
 OUT = Path(__file__).resolve().parents[1] / "notebooks"
 OUT.mkdir(exist_ok=True)
 
-REPO = "https://github.com/Rehan9599/Sonar-Drishti.git"
+REPO = "https://github.com/Rehan9599/opencv-ai-competition-Sonar-project.git"
+_CELL_INDEX = count(1)
 
 
 def md(*lines):
-    return {"cell_type": "markdown", "metadata": {}, "source": "\n".join(lines)}
+    return {
+        "cell_type": "markdown",
+        "metadata": {
+            "id": f"drishti-md-{next(_CELL_INDEX):03d}",
+            "language": "markdown",
+        },
+        "source": "\n".join(lines),
+    }
 
 
 def code(*lines):
-    return {"cell_type": "code", "execution_count": None, "metadata": {},
-            "outputs": [], "source": "\n".join(lines)}
+    return {
+        "cell_type": "code",
+        "execution_count": None,
+        "metadata": {
+            "id": f"drishti-py-{next(_CELL_INDEX):03d}",
+            "language": "python",
+        },
+        "outputs": [],
+        "source": "\n".join(lines),
+    }
 
 
 def notebook(cells, name):
@@ -41,7 +58,7 @@ cells = [
        "",
        "| | |",
        "|---|---|",
-       "| Repo | https://github.com/Rehan9599/Sonar-Drishti |",
+    "| Repo | https://github.com/Rehan9599/opencv-ai-competition-Sonar-project |",
        "| Model | https://huggingface.co/rehan9599/drishti-detector |",
        "",
        "### What you need",
@@ -59,7 +76,7 @@ cells = [
     md("## 1. Setup"),
     code("!pip -q install onnxruntime opencv-python-headless numpy scikit-learn",
         "!git clone -q " + REPO,
-        "%cd Sonar-Drishti",
+        "%cd opencv-ai-competition-Sonar-project",
         "",
         "import sys; sys.path.insert(0, '.')",
         "print('ready')"),
@@ -198,5 +215,5 @@ cells = [
 notebook(cells, "01_quickstart_inference.ipynb")
 
 print("\nOpen in Colab:")
-print("  https://colab.research.google.com/github/Rehan9599/Sonar-Drishti/blob/main/"
+print("  https://colab.research.google.com/github/Rehan9599/opencv-ai-competition-Sonar-project/blob/main/"
       "notebooks/01_quickstart_inference.ipynb")

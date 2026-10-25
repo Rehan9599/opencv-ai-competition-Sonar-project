@@ -21,13 +21,13 @@ pipeline_tag: object-detection
 
 ## ▶ Start here
 
-[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/Rehan9599/Sonar-Drishti/blob/main/notebooks/01_quickstart_inference.ipynb)
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/Rehan9599/opencv-ai-competition-Sonar-project/blob/main/notebooks/01_quickstart_inference.ipynb)
 
 Runs in ~2 minutes, CPU only, no PyTorch and no account needed:
 
 ```bash
 pip install onnxruntime opencv-python-headless numpy scikit-learn
-git clone https://github.com/Rehan9599/Sonar-Drishti.git && cd Sonar-Drishti
+git clone https://github.com/Rehan9599/opencv-ai-competition-Sonar-project.git && cd opencv-ai-competition-Sonar-project
 ```
 ```python
 from edge.edge_infer import run
@@ -44,18 +44,19 @@ The weights are committed to that repo, so the clone is the whole setup — samp
 
 
 YOLOv8s fine-tuned to detect man-made seabed hazards in **side-scan sonar (SSS)** imagery.
-Built for Smart India Hackathon 2026, Problem Statement 26057 (Ministry of Earth Sciences / NIOT).
+Built for the OpenCV AI Competition 2026, powered by AWS.
 
 Ships as **PyTorch** and as **ONNX** — the ONNX path runs the full pipeline with
 `onnxruntime + numpy + opencv` and **no PyTorch import at all** (~50 MB runtime vs ~1.5 GB),
 which is what makes it deployable on an AUV.
 
-- Code: https://github.com/Rehan9599/Sonar-Drishti
-- Full technical record: `docs/PROJECT_RECORD.html` in that repo
+- Code: https://github.com/Rehan9599/opencv-ai-competition-Sonar-project
+- Contest architecture and evaluation notes: `docs/OPENCV_AI_COMPETITION_2026.md` in that repo
 
 ## Classes
 
-**5 trained, 4 shipped.** `crab_pot` is trained as a hard-negative-ish class and filtered
+**Five model output IDs, four shipped product classes.** `crab_pot` is retained in the
+exported model taxonomy for compatibility but filtered
 downstream — it never reached a usable AP (see Limitations).
 
 | id | class | shipped |
@@ -78,42 +79,32 @@ downstream — it never reached a usable AP (see Limitations).
 | `calibrator.pkl` | 2 KB | per-class Platt-scaling calibrators (Module 2) |
 | `results.csv`, `args.yaml`, `*.png` | ~1 MB | training curves, confusion matrix, PR curves, exact hyper-parameters |
 
-## Results — held-out test set (850 tiles)
+## Reproduced ONNX results — published test split (700 tiles)
 
-| Metric | Value |
-|---|---|
-| mAP@50 | 0.580 |
-| mAP@50-95 | 0.434 |
-| precision | 0.734 |
-| recall | 0.629 |
-| false-positive rate | 0.266 |
+The evaluation uses `best_detector.onnx` (SHA-256 recorded in
+`docs/evaluation_manifest.yaml`) and the public dataset revision recorded there. Confidence is
+fixed at `0.25`; detections are matched one-to-one to same-class ground truth at IoU `0.50`.
+This diagnostic evaluates raw ONNX detector outputs before the server's per-class confidence
+gates and calibration. These are precision/recall measurements, **not mAP**:
 
-Per class (AP@50):
+| Class | TP | FP | FN | Precision | Recall | Note |
+|---|---:|---:|---:|---:|---:|---|
+| `submarine_pipeline` | 168 | 6 | 6 | 0.9655 | 0.9655 | |
+| `shipwreck` | 180 | 100 | 345 | 0.6429 | 0.3429 | Site-disjointness is unaudited |
+| `ghost_net` | 120 | 0 | 0 | 1.0000 | 1.0000 | Synthetic-only; not a field result |
+| `mine_cylinder` | 38 | 26 | 44 | 0.5938 | 0.4634 | |
 
-| Class | AP@50 | Note |
-|---|---|---|
-| `ghost_net` | 0.995 | **synthetic data — not a field number** |
-| `submarine_pipeline` | 0.984 | production-grade |
-| `mine_cylinder` | 0.424 | real-data ceiling |
-| `shipwreck` | 0.302 | see below |
-| `crab_pot` | 0.193 | filtered from the product |
-
-**On the shipwreck number.** It is measured on a deliberately hard test set (a 50 %-overlap
-re-tile tripled the shipwreck instances with partial and near-duplicate tiles). The 2026
-literature on the *same* dataset (AI4Shipwrecks) reports a vanilla YOLOv8 detection baseline of
-**mAP50 0.716** and a best-in-class **0.755** (DFSE-YOLO), while human inter-annotator agreement
-on SSS wrecks is only **50–60 %** (SW-Net). Our number is that ceiling minus a harder split and
-multi-class dilution — not a training failure.
+Earlier 850-tile/mAP and calibration figures have no matching evaluation export and are
+unverified; they are not submission claims. Recompute mAP and calibration on the pinned public
+split before reporting them. The test set contains empty-label negative tiles, which are included
+when counting false positives.
 
 ## Confidence calibration
 
-Raw detector scores are not probabilities. `calibrator.pkl` holds **per-class** Platt-scaling
-models; a single global calibrator made things *worse*.
-
-| | Expected Calibration Error (test) |
-|---|---|
-| raw scores | 0.052 |
-| per-class calibrated | **0.037** |
+The edge runtime applies per-class Platt calibrators from `calibrator.pkl`. Calibration
+performance has not been reproduced on the pinned 700-tile test split. The earlier ECE values
+(0.052 raw, 0.037 calibrated) are historical and unverified; they are excluded from submission
+claims until recalculated from an auditable run.
 
 ## Usage
 
@@ -158,12 +149,14 @@ Exact hyper-parameters in `args.yaml`; the epoch-by-epoch log in `results.csv`.
 
 ## Training data
 
-~4,775 training tiles assembled from six real SSS surveys plus procedural synthetic data.
+The published release contains 3,875 training tiles, 630 validation tiles, and 700 test tiles.
+The shipped model additionally used 1,200 `crab_pot` hard-negative tiles, for a 6,405-tile
+training input not fully reproduced by the public release.
 `ghost_net` is **100 % synthetic** — no public real ghost-net-in-SSS dataset exists (a
 Microsoft AI for Good / WWF effort had 412 real segments total and called it a feasibility study).
 
 The dataset is not redistributed here; source provenance and the rebuild scripts are in the
-GitHub repo (`docs/PROJECT_RECORD.html` §15, `ml/scripts/`).
+GitHub repo (`docs/hf/dataset_card.md`, `ml/scripts/`, and `ml/data/README.md`).
 
 ## Limitations
 
@@ -196,7 +189,7 @@ GitHub repo (`docs/PROJECT_RECORD.html` §15, `ml/scripts/`).
   title  = {DRISHTI: AI-Powered Marine Debris Detection from Side-Scan Sonar},
   author = {Fazal, Rehan and others},
   year   = {2026},
-  note   = {Smart India Hackathon 2026, Problem Statement 26057},
-  url    = {https://github.com/Rehan9599/Sonar-Drishti}
+  note   = {OpenCV AI Competition 2026, powered by AWS},
+  url    = {https://github.com/Rehan9599/opencv-ai-competition-Sonar-project}
 }
 ```

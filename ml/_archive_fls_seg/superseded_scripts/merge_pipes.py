@@ -3,7 +3,7 @@ import random
 from pathlib import Path
 from tqdm import tqdm
 
-ROOT = Path(r"D:\Sonar-Drishti\ml")
+ROOT = Path(__file__).resolve().parents[2]
 SRC = ROOT / "data" / "raw" / "subpipe_tiled"
 DST = ROOT / "data" / "splits"
 SMART_CAP = 1000

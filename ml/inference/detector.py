@@ -1,5 +1,5 @@
 """
-Shared inference wrapper -- imported by BOTH backend/detections/tasks.py (server-side)
+Shared inference wrapper -- imported by BOTH apps/api/detections/tasks.py (server-side)
 and edge/onnx_runtime_server.py (edge-side), so serving logic exists in exactly one place.
 
 Loads the exported ONNX model (or .pt during early development) and runs inference on
@@ -25,7 +25,7 @@ Detection = Dict
 
 class SonarDetector:
     """
-    Unified inference wrapper for YOLOv8-seg models.
+    Unified inference wrapper for YOLOv8 box-detection models.
 
     Supports both:
     - `.pt` files (via Ultralytics YOLO, for development)

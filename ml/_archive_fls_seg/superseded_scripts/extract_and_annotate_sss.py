@@ -6,7 +6,7 @@ from pathlib import Path
 from tqdm import tqdm
 
 # ---- Paths & Config ----
-ROOT = Path(r"D:\Sonar-Drishti\ml")
+ROOT = Path(__file__).resolve().parents[2]
 RAW = ROOT / "data" / "raw"
 SPLITS = ROOT / "data" / "splits"
 

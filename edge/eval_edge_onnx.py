@@ -20,7 +20,7 @@ import numpy as np
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
-from edge.edge_infer import EdgeDetector, CLASS_NAMES
+from edge.edge_infer import EdgeDetector, CLASS_NAMES, SHIPPED_CLASS_NAMES
 
 SPLITS = ROOT / "ml" / "data" / "splits"
 EXP = ROOT / "ml" / "models" / "exported"
@@ -91,19 +91,21 @@ def main():
         rows[tag] = (per, ms)
 
     print("\n" + "=" * 70)
-    print(f"  ONNX accuracy @ conf {CONF}  (torch-free EdgeDetector, CPU)")
+    print(f"  ONNX accuracy @ conf {CONF}, IoU match {IOU_MATCH}  (torch-free EdgeDetector, CPU)")
     print("=" * 70)
     hdr = f"  {'class':20s}"
     for tag in rows:
-        hdr += f" | {tag}  P     R "
+        hdr += f" | {tag:38s}"
     print(hdr)
-    for cid in range(len(CLASS_NAMES)):
-        line = f"  {CLASS_NAMES[cid]:20s}"
+    for class_name in SHIPPED_CLASS_NAMES:
+        cid = CLASS_NAMES.index(class_name)
+        line = f"  {class_name:20s}"
         for tag, (per, _) in rows.items():
             d = per[cid]
             p = d["tp"] / max(d["tp"] + d["fp"], 1)
             r = d["tp"] / max(d["gt"], 1)
-            line += f" | {p:.2f}  {r:.2f} "
+            fn = max(d["gt"] - d["tp"], 0)
+            line += f" | TP={d['tp']:4d} FP={d['fp']:4d} FN={fn:4d} P={p:.4f} R={r:.4f}"
         print(line)
     print("-" * 70)
     for tag, (_, ms) in rows.items():

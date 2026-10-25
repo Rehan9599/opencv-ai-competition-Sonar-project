@@ -7,7 +7,7 @@ This chains:
   preprocess -> detect -> confidence_filter (NMS + Platt + shadow check)
 
 Imported by:
-  - backend/detections/tasks.py (server-side Celery worker)
+    - apps/api/detections/tasks.py (server-side Celery worker)
   - edge/onnx_runtime_server.py (edge-side microservice)
 """
 
@@ -26,8 +26,8 @@ logger = logging.getLogger(__name__)
 
 # Package-level defaults
 _ML_DIR = Path(__file__).resolve().parent.parent
-_DEFAULT_MODEL = _ML_DIR / "models" / "exported" / "best_yolo_seg.onnx"
-_DEFAULT_MODEL_PT = _ML_DIR / "models" / "checkpoints" / "best_yolo_seg.pt"
+_DEFAULT_MODEL = _ML_DIR / "models" / "exported" / "best_detector.onnx"
+_DEFAULT_MODEL_PT = _ML_DIR / "models" / "checkpoints" / "best_detector.pt"
 _DEFAULT_CALIBRATOR = _ML_DIR / "models" / "exported" / "calibrator.pkl"
 
 # Singleton instances (lazy-initialized)

@@ -101,7 +101,7 @@ def upload(repo_id: str, repo_type: str, folder: Path, private: bool, dry: bool,
         folder_path=str(folder),
         repo_id=repo_id,
         repo_type=repo_type,
-        commit_message="DRISHTI v1.0 — SIH 2026 PS 26057",
+        commit_message="DRISHTI v1.0 — OpenCV AI Competition 2026",
     )
     print("     done.")
 
