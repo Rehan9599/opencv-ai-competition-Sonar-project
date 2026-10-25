@@ -14,7 +14,7 @@ DRISHTI is being prepared for the **OpenCV AI Competition 2026, powered by AWS**
 - OpenCV: sonar decoding, Lee speckle filtering, CLAHE enhancement, resizing, and annotation.
 - Inference: ONNX Runtime on CPU.
 - AWS target: containerized FastAPI inference API with optional S3 result storage.
-- Deployment candidates: Amazon ECS/Fargate or AWS App Runner.
+- Deployment: Amazon ECS Express Mode on Fargate; the edge upload UI and ONNX API are live.
 - Observability: CloudWatch-compatible container logs.
 - Repository: https://github.com/Rehan9599/opencv-ai-competition-Sonar-project
 

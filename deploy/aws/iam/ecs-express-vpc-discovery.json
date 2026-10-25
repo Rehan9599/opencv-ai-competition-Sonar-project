@@ -1,0 +1,15 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "ReadVpcMetadataRequiredByECSExpress",
+      "Effect": "Allow",
+      "Action": [
+        "ec2:DescribeAccountAttributes",
+        "ec2:DescribeInternetGateways",
+        "ec2:GetSecurityGroupsForVpc"
+      ],
+      "Resource": "*"
+    }
+  ]
+}

@@ -93,10 +93,26 @@ evaluation:
     - Record hardware and measured OpenCV/inference timings.
 
 aws:
-  status: not_deployed
+  status: deployed_and_smoke_tested
+  region: us-east-1
+  ecr_repository: drishti-9599
+  image_tag: contest-frontend-1
+  image_digest: sha256:fb7722bf38d41737f6ce86e423cf60d238e9f1bd433648cd704392e8f4306f6b
+  frontend: edge/static/index.html served at /
+  ecs_express_service: drishti-edge
+  public_endpoint: https://dr-b3baa1d3c12848cdb860091b09a68618.ecs.us-east-1.on.aws
+  task_size: {cpu_units: 1024, memory_mib: 2048}
+  scaling: {min_tasks: 1, max_tasks: 1}
+  task_role: drishti-edge-task-role
+  s3_bucket: drishti95-bucket
+  s3_result_prefix: drishti/results/
+  s3_lifecycle_expiration_days: 30
+  cloudwatch_log_group: /aws/ecs/default/drishti-edge-ab52
+  cloudwatch_retention_days: 14
+  monthly_budget_alert: not_configured
   planned_services:
     - Amazon ECR
-    - Amazon ECS Fargate or AWS App Runner
+    - Amazon ECS Express Mode on Fargate
     - Amazon S3
     - Amazon CloudWatch
   s3_result_storage: optional_by_environment

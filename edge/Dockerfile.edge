@@ -1,6 +1,7 @@
 # DRISHTI edge inference - Tier 0 (CPU). Torch-free: onnxruntime + numpy + opencv.
-# Build:  docker build -f edge/Dockerfile.edge -t drishti-edge .
-# Run:    docker run --rm -p 8100:8100 -v $PWD/ml/models/exported:/app/ml/models/exported drishti-edge
+# Build:  docker build -f edge/Dockerfile.edge -t drishti-edge:local .
+# Run:    docker run --rm -p 8100:8100 drishti-edge:local
+# Open:   http://localhost:8100 (upload UI) · http://localhost:8100/docs (API)
 #
 # For a Jetson / CUDA target: base off nvcr.io/nvidia/l4t-ml and swap
 # onnxruntime -> onnxruntime-gpu in edge/requirements.txt (TensorRT EP).

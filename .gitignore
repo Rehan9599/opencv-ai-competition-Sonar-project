@@ -58,3 +58,4 @@ build/
 # uploaded sonar files + generated reports (runtime, never committed)
 apps/api/media/
 apps/api/staticfiles/
+deploy/aws/**/*.local.json

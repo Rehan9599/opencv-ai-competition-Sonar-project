@@ -31,7 +31,7 @@ sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / "ml" / "scripts"))
 
 from fastapi import FastAPI, File, UploadFile, HTTPException
-from fastapi.responses import JSONResponse
+from fastapi.responses import FileResponse, JSONResponse
 
 from edge.edge_infer import (
     EdgeDetector,
@@ -59,6 +59,7 @@ logger = logging.getLogger("drishti.edge")
 _detector: EdgeDetector | None = None
 _filter: ConfidenceFilter | None = None
 _model_sha256: str | None = None
+UI_PATH = Path(__file__).resolve().parent / "static" / "index.html"
 
 
 def _sha256(path: Path) -> str:
@@ -100,6 +101,12 @@ def health():
         "model_output_classes": CLASS_NAMES,
         "classes": SHIPPED_CLASS_NAMES,
     }
+
+
+@app.get("/", include_in_schema=False)
+def frontend():
+    """Serve the edge upload UI from the same origin as the inference API."""
+    return FileResponse(UI_PATH, media_type="text/html")
 
 
 @app.post("/detect")

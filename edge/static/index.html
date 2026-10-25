@@ -1,0 +1,263 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#0b1620">
+  <title>DRISHTI · Sonar Edge Demo</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #0b1620;
+      --panel: #122330;
+      --panel-2: #172b39;
+      --line: #294354;
+      --text: #e8f2f5;
+      --muted: #9bb2bd;
+      --accent: #62d8c6;
+      --accent-2: #b5ef77;
+      --danger: #ff8f8f;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      color: var(--text);
+      background: radial-gradient(ellipse at 80% -20%, #173448 0, transparent 45%), var(--bg);
+    }
+    a { color: var(--accent); }
+    .shell { width: min(1160px, calc(100% - 36px)); margin: 0 auto; padding: 28px 0 48px; }
+    header { display: flex; justify-content: space-between; align-items: center; gap: 16px; margin-bottom: 26px; }
+    .brand { display: flex; align-items: center; gap: 12px; letter-spacing: .12em; font-weight: 800; }
+    .mark { width: 38px; height: 38px; border: 1px solid #3d746f; border-radius: 12px; display: grid; place-items: center; color: var(--accent); background: #102c33; }
+    .brand small { display: block; color: var(--muted); font-size: 11px; letter-spacing: .06em; font-weight: 500; margin-top: 3px; }
+    .health { display: inline-flex; align-items: center; gap: 8px; padding: 8px 11px; border: 1px solid var(--line); border-radius: 999px; color: var(--muted); font-size: 12px; }
+    .dot { width: 8px; height: 8px; border-radius: 50%; background: #f1b860; }
+    .dot.ok { background: var(--accent-2); box-shadow: 0 0 12px #b5ef7766; }
+    h1 { font-size: clamp(28px, 5vw, 46px); letter-spacing: -.04em; margin: 0; line-height: 1.05; }
+    .intro { color: var(--muted); max-width: 690px; line-height: 1.65; margin: 14px 0 26px; }
+    .grid { display: grid; grid-template-columns: minmax(280px, 350px) minmax(0, 1fr); gap: 18px; align-items: start; }
+    .card { border: 1px solid var(--line); border-radius: 16px; background: linear-gradient(145deg, #142633, #101e29); box-shadow: 0 14px 40px #0002; }
+    .card-inner { padding: 20px; }
+    h2 { margin: 0 0 14px; font-size: 15px; letter-spacing: .01em; }
+    .drop {
+      display: grid; place-items: center; text-align: center; min-height: 172px; padding: 18px;
+      border: 1px dashed #477080; border-radius: 12px; background: #0e202b; cursor: pointer;
+      transition: border-color .15s, background .15s;
+    }
+    .drop:hover, .drop.drag { border-color: var(--accent); background: #102a33; }
+    .drop strong { display: block; margin: 8px 0 4px; }
+    .drop span { color: var(--muted); font-size: 12px; line-height: 1.5; }
+    .drop input { display: none; }
+    .upload-icon { font-size: 25px; color: var(--accent); }
+    .filename { margin-top: 10px; color: var(--accent-2); font-size: 12px; overflow-wrap: anywhere; }
+    button {
+      width: 100%; margin-top: 14px; border: 0; border-radius: 10px; padding: 12px 16px;
+      color: #07201f; background: linear-gradient(100deg, var(--accent), var(--accent-2));
+      font-size: 14px; font-weight: 800; cursor: pointer;
+    }
+    button:disabled { opacity: .45; cursor: not-allowed; }
+    .hint, .notice { font-size: 12px; line-height: 1.55; color: var(--muted); }
+    .notice { margin: 15px 0 0; padding: 11px; border-radius: 9px; background: #0d1b25; }
+    .notice.error { color: var(--danger); border: 1px solid #713c45; }
+    .model { margin-top: 16px; padding-top: 15px; border-top: 1px solid var(--line); }
+    .model-row { display: flex; justify-content: space-between; gap: 12px; padding: 6px 0; font-size: 12px; }
+    .model-row span:first-child { color: var(--muted); }
+    .model-row span:last-child { text-align: right; overflow-wrap: anywhere; }
+    .canvas-wrap { min-height: 270px; display: grid; place-items: center; background: #08121a; border-radius: 11px; overflow: hidden; }
+    canvas { display: none; width: 100%; height: auto; }
+    .empty { color: var(--muted); font-size: 13px; text-align: center; padding: 28px; line-height: 1.6; }
+    .results-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 13px; }
+    .results-head h2 { margin: 0; }
+    .timing { color: var(--muted); font-size: 12px; }
+    .detections { display: grid; gap: 8px; margin-top: 15px; }
+    .detection { display: grid; grid-template-columns: 1fr auto; gap: 4px 12px; padding: 12px; border: 1px solid var(--line); border-radius: 10px; background: #10202a; }
+    .detection strong { text-transform: capitalize; }
+    .score { color: var(--accent-2); font-variant-numeric: tabular-nums; }
+    .meta { color: var(--muted); font-size: 11px; }
+    .none { padding: 14px; color: var(--muted); background: #10202a; border-radius: 10px; font-size: 13px; }
+    .result-uri { margin-top: 14px; font: 11px ui-monospace, SFMono-Regular, Consolas, monospace; color: var(--muted); overflow-wrap: anywhere; }
+    footer { margin-top: 22px; color: #7893a0; font-size: 11px; line-height: 1.6; }
+    @media (max-width: 760px) { .grid { grid-template-columns: 1fr; } header { align-items: flex-start; } .canvas-wrap { min-height: 210px; } }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <header>
+      <div class="brand"><div class="mark">◉</div><div>DRISHTI<small>SONAR EDGE INFERENCE</small></div></div>
+      <div class="health"><span id="healthDot" class="dot"></span><span id="healthText">Checking API…</span></div>
+    </header>
+
+    <h1>Read the seabed<br>with sound.</h1>
+    <p class="intro">Upload one side-scan sonar image to run it through the OpenCV preprocessing and ONNX detector. Review the predicted hazards and confidence scores below.</p>
+
+    <main class="grid">
+      <section class="card">
+        <div class="card-inner">
+          <h2>Analyze a sonar image</h2>
+          <label id="drop" class="drop">
+            <input id="file" type="file" accept="image/png,image/jpeg,.jpg,.jpeg,.png">
+            <div><div class="upload-icon">↑</div><strong>Choose an image</strong><span>or drag and drop a PNG or JPEG<br>Maximum file size: 10 MB</span><div id="filename" class="filename"></div></div>
+          </label>
+          <button id="run" type="button" disabled>Run detection</button>
+          <div id="message" class="notice">Images are processed in memory. When enabled, S3 stores the result JSON, not the uploaded image.</div>
+          <div class="model">
+            <h2>Active inference runtime</h2>
+            <div class="model-row"><span>Model</span><span id="modelName">—</span></div>
+            <div class="model-row"><span>Runtime</span><span id="runtime">—</span></div>
+            <div class="model-row"><span>OpenCV</span><span id="opencv">—</span></div>
+            <div class="model-row"><span>Provider</span><span id="provider">—</span></div>
+            <div class="model-row"><span>Model SHA-256</span><span id="hash">—</span></div>
+            <div class="model-row"><span>Product classes</span><span id="classes">—</span></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="card">
+        <div class="card-inner">
+          <div class="results-head"><h2>Image and detections</h2><span id="timing" class="timing"></span></div>
+          <div class="canvas-wrap"><div id="empty" class="empty">Your uploaded image and detection boxes<br>will appear here.</div><canvas id="canvas"></canvas></div>
+          <div id="detections" class="detections"></div>
+          <div id="resultUri" class="result-uri"></div>
+        </div>
+      </section>
+    </main>
+    <footer>Decision support only. Detections need human review; geolocation is not included for a single uploaded tile. <a href="/docs">API documentation</a></footer>
+  </div>
+
+  <script>
+    const fileInput = document.getElementById("file");
+    const drop = document.getElementById("drop");
+    const runButton = document.getElementById("run");
+    const canvas = document.getElementById("canvas");
+    const ctx = canvas.getContext("2d");
+    const image = new Image();
+    const detectionsEl = document.getElementById("detections");
+    const message = document.getElementById("message");
+    let selectedFile = null;
+
+    function setMessage(text, error = false) {
+      message.textContent = text;
+      message.classList.toggle("error", error);
+    }
+
+    async function loadHealth() {
+      try {
+        const response = await fetch("/health");
+        if (!response.ok) throw new Error("Health check failed");
+        const data = await response.json();
+        document.getElementById("healthDot").classList.add("ok");
+        document.getElementById("healthText").textContent = "API online · " + data.runtime;
+        document.getElementById("modelName").textContent = data.model + " · " + data.model_size_mb + " MB";
+        document.getElementById("runtime").textContent = "ONNX Runtime " + data.onnxruntime_version;
+        document.getElementById("opencv").textContent = data.opencv_version;
+        document.getElementById("provider").textContent = (data.inference_providers || []).join(", ");
+        document.getElementById("hash").textContent = data.model_sha256 || "loading";
+        document.getElementById("classes").textContent = (data.classes || []).join(", ");
+        setMessage(data.s3_result_storage ? "Images are processed in memory. S3 stores JSON results only." : "Images and results are processed in memory; S3 storage is off.");
+      } catch (error) {
+        document.getElementById("healthText").textContent = "API unavailable";
+        setMessage(error.message, true);
+      }
+    }
+
+    function chooseFile(file) {
+      if (!file) return;
+      if (file.size > 10 * 1024 * 1024) {
+        setMessage("This image exceeds the 10 MB upload limit.", true);
+        return;
+      }
+      if (!file.type.startsWith("image/")) {
+        setMessage("Choose a PNG or JPEG image.", true);
+        return;
+      }
+      selectedFile = file;
+      document.getElementById("filename").textContent = file.name;
+      runButton.disabled = false;
+      detectionsEl.innerHTML = "";
+      document.getElementById("timing").textContent = "";
+      document.getElementById("resultUri").textContent = "";
+      const url = URL.createObjectURL(file);
+      image.onload = () => {
+        canvas.width = image.naturalWidth;
+        canvas.height = image.naturalHeight;
+        ctx.drawImage(image, 0, 0);
+        canvas.style.display = "block";
+        document.getElementById("empty").style.display = "none";
+        URL.revokeObjectURL(url);
+      };
+      image.src = url;
+      setMessage("Ready to analyze. OpenCV preprocessing is enabled.");
+    }
+
+    fileInput.addEventListener("change", () => chooseFile(fileInput.files[0]));
+    drop.addEventListener("dragover", (event) => { event.preventDefault(); drop.classList.add("drag"); });
+    drop.addEventListener("dragleave", () => drop.classList.remove("drag"));
+    drop.addEventListener("drop", (event) => {
+      event.preventDefault();
+      drop.classList.remove("drag");
+      chooseFile(event.dataTransfer.files[0]);
+    });
+
+    function drawDetections(detections) {
+      ctx.drawImage(image, 0, 0);
+      ctx.lineWidth = Math.max(2, canvas.width / 500);
+      ctx.font = `bold ${Math.max(13, canvas.width / 45)}px system-ui`;
+      for (const detection of detections) {
+        const [x1, y1, x2, y2] = detection.bounding_geometry.bbox;
+        const label = `${detection.class_label} ${Number(detection.confidence_score).toFixed(1)}%`;
+        const labelHeight = Math.max(22, canvas.width / 30);
+        const labelWidth = ctx.measureText(label).width + 14;
+        ctx.strokeStyle = "#62d8c6";
+        ctx.fillStyle = "#62d8c6";
+        ctx.strokeRect(x1, y1, x2 - x1, y2 - y1);
+        ctx.fillRect(x1, Math.max(0, y1 - labelHeight), labelWidth, labelHeight);
+        ctx.fillStyle = "#07201f";
+        ctx.fillText(label, x1 + 7, Math.max(labelHeight - 6, y1 - 7));
+      }
+    }
+
+    runButton.addEventListener("click", async () => {
+      if (!selectedFile) return;
+      runButton.disabled = true;
+      runButton.textContent = "Analyzing…";
+      setMessage("Uploading image to the edge inference API…");
+      detectionsEl.innerHTML = "";
+      try {
+        const form = new FormData();
+        form.append("file", selectedFile);
+        const response = await fetch("/detect", { method: "POST", body: form });
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.detail || `Request failed (${response.status})`);
+        drawDetections(result.detections || []);
+        document.getElementById("timing").textContent = `${result.inference_ms} ms · ${result.opencv_version}`;
+        if (!result.detections?.length) {
+          detectionsEl.innerHTML = '<div class="none">No shipped-class detections passed the confidence filter.</div>';
+        } else {
+          detectionsEl.innerHTML = result.detections.map((detection) => `
+            <div class="detection">
+              <strong>${escapeHtml(detection.class_label.replaceAll("_", " "))}</strong>
+              <span class="score">${Number(detection.confidence_score).toFixed(1)}%</span>
+              <span class="meta">${escapeHtml(detection.review_status)} · box [${detection.bounding_geometry.bbox.map((n) => Number(n).toFixed(0)).join(", ")}]</span>
+              <span class="meta">${escapeHtml(result.runtime)} · OpenCV ${escapeHtml(result.opencv_version)}</span>
+            </div>`).join("");
+        }
+        document.getElementById("resultUri").textContent = result.result_uri ? `Saved result: ${result.result_uri}` : "";
+        setMessage(`Analysis complete · ${result.detections.length} detection(s).`);
+      } catch (error) {
+        setMessage(error.message || "Detection failed. Try another image.", true);
+      } finally {
+        runButton.disabled = !selectedFile;
+        runButton.textContent = "Run detection";
+      }
+    });
+
+    function escapeHtml(value) {
+      return String(value).replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[char]);
+    }
+
+    loadHealth();
+  </script>
+</body>
+</html>

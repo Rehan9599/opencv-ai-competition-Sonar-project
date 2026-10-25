@@ -1,0 +1,16 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "AllowECSManagedLoadBalancerCreation",
+      "Effect": "Allow",
+      "Action": "elasticloadbalancing:CreateLoadBalancer",
+      "Resource": "arn:aws:elasticloadbalancing:*:*:loadbalancer/app/*/*",
+      "Condition": {
+        "StringEquals": {
+          "aws:RequestTag/AmazonECSManaged": "true"
+        }
+      }
+    }
+  ]
+}

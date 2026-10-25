@@ -3,11 +3,10 @@
 **AI-powered underwater marine-debris & anomaly detection from side-scan sonar imagery.**
 OpenCV AI Competition 2026, powered by AWS · OpenCV 5 · Physical AI
 
-DRISHTI ingests a raw side-scan sonar (SSS) transect, detects man-made seabed hazards
-(shipwrecks, pipelines/cables, cylinders, entangled "ghost" nets), scores each detection on a
-**calibrated 0–100 %** scale, geotags it to latitude/longitude with an honest uncertainty
-radius, and emits a JSON / CSV / GeoJSON report plus a live review dashboard — the detector runs
-**torch-free on a CPU**, edge-deployable, no cloud required.
+The full local stack ingests side-scan sonar transects, detects man-made seabed hazards, applies
+confidence filtering, geotags detections, and serves a review dashboard with JSON/CSV/GeoJSON
+exports. For a lightweight demo, the repository also provides a torch-free FastAPI edge API and
+upload UI that run locally in Docker or on AWS ECS Express Mode.
 
 > Three retained technical PDFs document preprocessing, model selection, and system limitations;
 > see [`docs/Documents/README.md`](docs/Documents/README.md) and [`docs/PDF_AUDIT.md`](docs/PDF_AUDIT.md).
@@ -20,21 +19,25 @@ OpenCV performs substantive sonar image analysis through decoding, Lee speckle f
 CLAHE enhancement, resizing, and annotated output preparation. ONNX Runtime remains the
 neural inference engine so the CPU path stays reproducible and lightweight.
 
-The contest deployment target is a focused edge API rather than the full local Django stack:
+The AWS contest deployment uses the focused edge API and upload UI, not the full local
+Django/dashboard stack. The React dashboard in `apps/dashboard` expects Django job, WebSocket,
+review, and export routes. It remains available for the full local workflow but is not included in
+the lighter ECS image. The deployed edge UI calls the ONNX detector through FastAPI:
 
 - OpenCV 5 preprocessing and image analysis
 - ONNX Runtime CPU inference
 - Containerized FastAPI service in `edge/`
+- Single-image browser UI served by the same container at `/`
 - Optional S3 result storage through the task's IAM role
 - CloudWatch-compatible container logs
-- AWS ECS/Fargate or App Runner deployment
+- AWS ECS Express Mode on Fargate
 
 See [`docs/OPENCV_AI_COMPETITION_2026.md`](docs/OPENCV_AI_COMPETITION_2026.md) for the
 submission requirements, architecture, evaluation claims, and responsible-use limitations.
 The current project status is [`docs/PROJECT_STATUS.md`](docs/PROJECT_STATUS.md), and the
 reproducibility record is [`docs/evaluation_manifest.yaml`](docs/evaluation_manifest.yaml).
 
-**Try the detector in 2 minutes, no setup:**
+**Try the ONNX detector locally in 2 minutes:**
 [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/Rehan9599/opencv-ai-competition-Sonar-project/blob/main/notebooks/01_quickstart_inference.ipynb)
 — the ONNX model and sample tiles are committed, so one `git clone` runs the detector on CPU.
 
@@ -49,7 +52,7 @@ apps/
     drishti_api/  settings · asgi · celery
   dashboard/      React 18 + Vite + React-Leaflet  →  the operator dashboard (Module 4)
     src/components/  UploadPanel · MapView · ReviewQueue · DetectionImage
-    src/pages/       UploadResultsPage (the one working page) · LiveFeed · GlobalMap · Export
+    src/pages/       UploadResultsPage · LiveFeed · GlobalMap · Export
     src/state/       store.js  (session-scoped job accumulation)
 ml/
   scripts/        dataset assembly · preprocess · train · calibrate · evaluate · export_onnx · run_aurora_survey
@@ -57,7 +60,7 @@ ml/
   geotagging/     XTF header parser · nav CSV · coordinate projection · run_geotag
   reporting/      schema · json_export · csv_export
   models/         checkpoints/ (best_detector.pt) · exported/ (ONNX + calibrator.pkl)
-edge/             torch-free inference: edge_infer.py · onnx_runtime_server.py · benchmark.py · Dockerfile.edge
+edge/             ONNX edge API + upload UI: edge_infer.py · onnx_runtime_server.py · static/ · Dockerfile.edge
 demo/             frontend_test/ (curated upload bundle) · preprocessing_demo.py · tiles/
 docs/             Documents/ (3 retained PDFs) · API_ENDPOINTS.md · LOCAL_SETUP.txt · TILING_DEDUP_FIX.md
                   OpenCV competition/AWS plans · evaluation manifest · PDF audit · hf/ cards
@@ -110,7 +113,25 @@ pnpm --filter @drishti/dashboard dev
 
 Full detail, troubleshooting, and the known-issues list: **`docs/LOCAL_SETUP.txt`**.
 
-### 2.3 Smoke test
+### 2.3 Edge UI and API (standalone Docker image)
+
+The edge image includes the ONNX model, FastAPI service, and the small upload UI served at `/`.
+No separate frontend build or model download is needed:
+
+```bash
+docker build -f edge/Dockerfile.edge -t drishti-edge:local .
+docker run --rm -p 8100:8100 drishti-edge:local
+```
+
+Open `http://localhost:8100` to upload a PNG/JPEG, view annotated detections, and see the active
+model/runtime details. The API is at `/detect`, health details at `/health`, and interactive API
+documentation at `/docs`.
+
+This is the same lightweight edge mode deployed to AWS. It uses `best_detector.onnx` (the edge
+export of the trained detector), OpenCV 5 preprocessing, and ONNX Runtime CPU inference. It does
+not start Django, Redis, PostgreSQL, or the React dashboard.
+
+### 2.4 Full local dashboard smoke test
 
 ```bash
 curl -F "file=@demo/frontend_test/02_shipwreck.jpg" \
@@ -338,11 +359,12 @@ Infra / demo / docs:
 | Part | State |
 |---|---|
 | OpenCV 5 edge image | **verified** — OpenCV 5.0.0, NumPy 2.5.4, ONNX Runtime 1.31.0 |
-| Edge Docker build | **passed locally** — `drishti-edge:task4`; no AWS deployment yet |
+| Edge Docker build | **passed locally** — `drishti-edge:frontend-1`; same image is deployed on ECS Express Mode |
 | Edge tests | **9 passed** earlier in this workflow; FastAPI startup-event deprecation warning remains |
 | Dataset and taxonomy | **reconciled** against the pinned 5,205-tile public dataset; four shipped classes |
 | Evaluation | fixed-threshold ONNX P/R reproduced on 700 test tiles; historic mAP/ECE claims remain unverified |
 | Local Django/dashboard stack | source is present; full Compose stack was not smoke-tested in this review |
-| AWS deployment and demo evidence | **pending** |
+| AWS edge API + upload UI | **deployed and smoke-tested** on ECS Express Mode; browser detection and S3 result writes verified |
+| Final demo/evidence and monthly budget alert | **pending** |
 
 See [`docs/PROJECT_STATUS.md`](docs/PROJECT_STATUS.md) for validation details and the remaining submission gates.

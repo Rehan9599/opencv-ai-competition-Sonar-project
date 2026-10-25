@@ -1,91 +1,137 @@
-# AWS Deployment Runbook
+# AWS Console Runbook — ECS Express Mode
 
-This deployment exposes only the CPU inference service in `edge/`. The Django/Postgres/Redis
-stack remains the richer local demonstration.
+This deploys the CPU inference API and single-image upload UI from `edge/` using **Amazon ECS
+Express Mode on Fargate**.
 
-## Required AWS resources
+## 1. Pick a region and create a budget
 
-- ECR repository for the edge image
-- App Runner service or ECS Fargate service
-- S3 bucket for JSON result objects
-- Task/service IAM role with `s3:PutObject` only on the result prefix
-- CloudWatch log group
-- Budget alert and an S3 lifecycle rule
+Use `us-east-1` for the existing ECR repository, ECS service, S3 bucket, and CloudWatch logs.
+Create a monthly cost budget with email alerts at 80% and 100% of the cap you choose.
 
-## Build and publish the image
+## 2. Create the ECR repository in the console
 
-Set these values in your shell, not in the repository:
+In **Amazon ECR → Private registry → Repositories → Create repository**:
 
-```bash
-export AWS_REGION=us-east-1
-export AWS_ACCOUNT_ID=000000000000
-export ECR_REPOSITORY=drishti-edge
-export IMAGE_TAG=contest-2026
+- Repository name: `drishti-9599`
+- Visibility: private
+- Enable scan on push
+- Enable immutable tags if offered
 
-aws ecr create-repository \
-  --repository-name "$ECR_REPOSITORY" \
-  --region "$AWS_REGION"
+Copy the AWS account ID and note the region. The image will be pushed from the local machine;
+the ECR console does not upload a local Docker image.
 
-aws ecr get-login-password --region "$AWS_REGION" |
-  docker login --username AWS --password-stdin \
-  "$AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com"
+## 3. Authenticate locally and push the built image
 
-docker build -f edge/Dockerfile.edge \
-  -t "$ECR_REPOSITORY:$IMAGE_TAG" .
+Install AWS CLI v2 and Docker Desktop. With console credentials, AWS CLI 2.32 or newer can
+authenticate through a browser using `aws login --profile drishti-contest`; IAM Identity Center
+users should use `aws configure sso --profile drishti-contest` and `aws sso login` instead.
+Do not create or paste long-lived access keys.
 
-docker tag "$ECR_REPOSITORY:$IMAGE_TAG" \
-  "$AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/$ECR_REPOSITORY:$IMAGE_TAG"
+Run this in PowerShell from the repository root after signing in:
 
-docker push \
-  "$AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/$ECR_REPOSITORY:$IMAGE_TAG"
+```powershell
+$Region = "us-east-1"
+$AccountId = "563691829406"
+$Repo = "drishti-9599"
+$Tag = "contest-frontend-1"
+$Registry = "$AccountId.dkr.ecr.$Region.amazonaws.com"
+
+aws sts get-caller-identity --profile drishti-contest
+aws ecr get-login-password --region $Region --profile drishti-contest |
+  docker login --username AWS --password-stdin $Registry
+docker build -f edge/Dockerfile.edge -t drishti-edge:frontend-1 .
+docker tag drishti-edge:frontend-1 "${Registry}/${Repo}:${Tag}"
+docker push "${Registry}/${Repo}:${Tag}"
 ```
 
-## Container configuration
+In ECR, verify the `contest-frontend-1` image appears and copy its digest.
 
-Set these environment variables in App Runner or the ECS task definition:
+## 4. Create the result bucket and retention rule
+
+In **Amazon S3 → Create bucket**:
+
+- Bucket name: `drishti95-bucket`.
+- Region: `us-east-1`.
+- Keep **Block all public access** enabled.
+- Keep default encryption enabled (SSE-S3); leave versioning off for this demo.
+
+Under **Management → Create lifecycle rule**, filter by prefix `drishti/results/` and expire
+objects after 30 days.
+
+## 5. Create the S3 task role
+
+In **IAM → Roles → Create role → AWS service → Elastic Container Service → ECS Task**, create
+`drishti-edge-task-role`. Add this inline permission, replacing the bucket name:
+
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [{
+    "Effect": "Allow",
+    "Action": ["s3:PutObject"],
+    "Resource": "arn:aws:s3:::drishti95-bucket/drishti/results/*"
+  }]
+}
+```
+
+The application only writes JSON results. It does not need bucket listing or read access.
+
+## 6. Create the public ECS Express Mode service
+
+In **Amazon ECS → Express mode**, browse to the private ECR repository and select the image
+digest you copied. For **Task execution role** and **Infrastructure role**, use the console's
+**Create new role** choices if these roles do not already exist. In **Additional configurations**,
+set:
+
+- Service name: `drishti-edge`
+- Container port: `8100`
+- Health check path: `/health`
+- Task role: `drishti-edge-task-role`
+- CPU/memory: start at 1 vCPU / 2 GB
+- Minimum and maximum tasks: 1 and 1 for the demo
+- Public HTTPS URL: enabled
+- CloudWatch logging: enabled
+
+Add these environment variables:
 
 ```text
 DRISHTI_ONNX=/app/ml/models/exported/best_detector.onnx
 DRISHTI_CALIBRATOR=/app/ml/models/exported/calibrator.pkl
 DRISHTI_PREPROCESS=1
 DRISHTI_MAX_UPLOAD_BYTES=10485760
-DRISHTI_S3_BUCKET=<private-result-bucket>
+DRISHTI_S3_BUCKET=drishti95-bucket
 DRISHTI_S3_PREFIX=drishti/results
-AWS_REGION=<region>
+AWS_REGION=us-east-1
 ```
 
-Do not add AWS access keys. App Runner or ECS should use an instance/task role.
+Review the resources and choose **Create**. Wait for deployment to finish and the service to
+become healthy.
 
-## Minimal S3 policy
+## 7. Verify and capture evidence
 
-Replace the placeholders before creating the role policy:
+Open the service's Application URL in Chrome to use the upload interface at `/`. The page
+shows the active ONNX model, OpenCV version, provider, and model hash. You can also open
+`/health` directly and confirm `status` is `ok`, OpenCV is `5.0.0`, and
+`s3_result_storage` is `true`.
 
-```json
-{
-  "Version": "2012-10-17",
-  "Statement": [
-    {
-      "Effect": "Allow",
-      "Action": ["s3:PutObject"],
-      "Resource": "arn:aws:s3:::<private-result-bucket>/drishti/results/*"
-    }
-  ]
-}
+Use the browser upload form to choose a PNG/JPEG and run detection. Or submit a sample image
+from PowerShell:
+
+```powershell
+$ServiceUrl = "https://<application-url>"
+curl.exe --fail "$ServiceUrl/health"
+curl.exe --fail -F "file=@demo/frontend_test/02_shipwreck.jpg" "$ServiceUrl/detect"
 ```
 
-If uploaded source images are added later, grant a separate, explicit prefix rather than
-broadening this policy to the whole bucket.
+The detection response should contain a `result_uri`. Verify the JSON object under
+`drishti/results/` in S3 and the request/startup logs in CloudWatch. Capture the URL, health JSON,
+detection JSON, S3 object, and CloudWatch log for the submission.
 
-## Smoke test
+The endpoint accepts unauthenticated image uploads. Keep the 10 MB upload limit and one-task
+scale cap; delete the service after the contest demo if it is no longer needed. ECS Express Mode
+has no extra service fee, but its Fargate tasks, load balancer, logs, and data transfer are billed.
 
-```bash
-export SERVICE_URL=https://<service-hostname>
-curl --fail "$SERVICE_URL/health"
-curl --fail \
-  -F "file=@demo/frontend_test/02_shipwreck.jpg" \
-  "$SERVICE_URL/detect"
-```
-
-Record the health response, HTTP latency, detection JSON, S3 object URI, and CloudWatch log
-entry in the contest evidence log. Do not publish a public endpoint until upload limits,
-S3 permissions, logs, and the budget alert are verified.
+For an account-created infrastructure role, ECS Express Mode's managed policy may need the two
+supplemental inline policies in `deploy/aws/iam/` (tag-scoped ALB creation and read-only VPC
+discovery). This account required them during provisioning; attach them if CloudTrail reports
+those specific `AccessDenied` actions.
